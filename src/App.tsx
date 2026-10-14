@@ -470,7 +470,6 @@ export default function App() {
 
             {error && <div className="error-message">{error}</div>}
 
-            {/* لوحة اختيار السورة بتصميم متوافق تماماً مع إستايل الصفحة */}
             <div style={{ 
               background: "linear-gradient(145deg, #16221c, #111a15)", 
               border: "1px solid rgba(16, 185, 129, 0.3)", 
@@ -516,7 +515,7 @@ export default function App() {
                     </option>
                   ))}
                 </select>
-                <span style={{ position: "absolute", left: "18px", top: "50%”, transform: "translateY(-50%)", color: "#34D399", pointerEvents: "none", fontSize: "12px" }}>
+                <span style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "#34D399", pointerEvents: "none", fontSize: "12px" }}>
                   ▼
                 </span>
               </div>
@@ -556,7 +555,6 @@ export default function App() {
         )}
       </main>
 
-      {/* شريط المشغل الصوتي السفلي */}
       {currentAudio && (
         <div className="mini-player" style={{ flexDirection: "column", gap: "8px", padding: "14px 20px" }}>
           <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
