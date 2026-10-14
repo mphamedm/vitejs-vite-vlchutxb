@@ -555,23 +555,27 @@ export default function App() {
         )}
       </main>
 
+      {/* مشغل الصوت المصغر مع تعديل التخطيط لضمان بقاء زر الإغلاق داخل الإطار */}
       {currentAudio && (
-        <div className="mini-player" style={{ flexDirection: "column", gap: "8px", padding: "14px 20px" }}>
-          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span className="player-icon" style={{ fontSize: "20px" }}>{isPlaying ? "♫" : "♪"}</span>
-              <div className="player-info">
-                <strong style={{ fontSize: "14px" }}>{currentAudio.name}</strong>
-                <span style={{ fontSize: "11px", opacity: 0.8 }}>
-                  {isPlaying ? `جاري تشغيل (سورة ${activeSurahName})...` : "متوقف مؤقتًا"}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="mini-player" style={{ flexDirection: "column", gap: "10px", padding: "14px 18px", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+            
+            {/* زر الإغلاق وأزرار التحكم */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <button
+                onClick={() => {
+                  if (audioRef.current) audioRef.current.pause();
+                  setCurrentAudio(null);
+                  setIsPlaying(false);
+                }}
+                style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "50%", width: "28px", height: "28px", color: "#EF4444", cursor: "pointer", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                title="إغلاق المشغل"
+              >
+                ✕
+              </button>
               <button
                 onClick={playPrevReciter}
-                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", padding: "4px" }}
+                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "15px", padding: "2px" }}
                 title="القارئ السابق"
               >
                 ⏮
@@ -580,31 +584,33 @@ export default function App() {
                 className="player-control"
                 onClick={() => playReciterAudio(currentAudio, selectedAudioSurah)}
                 aria-label={isPlaying ? "إيقاف مؤقت" : "تشغيل"}
-                style={{ width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ width: "34px", height: "34px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 {isPlaying ? "Ⅱ" : "▶"}
               </button>
               <button
                 onClick={playNextReciter}
-                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", padding: "4px" }}
+                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "15px", padding: "2px" }}
                 title="القارئ التالي"
               >
                 ⏭
               </button>
-              <button
-                onClick={() => {
-                  if (audioRef.current) audioRef.current.pause();
-                  setCurrentAudio(null);
-                  setIsPlaying(false);
-                }}
-                style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "16px", padding: "4px", marginRight: "8px" }}
-                title="إغلاق المشغل"
-              >
-                ✕
-              </button>
             </div>
+
+            {/* معلومات القارئ والسورة */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", overflow: "hidden" }}>
+              <div className="player-info" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <strong style={{ fontSize: "13px", display: "block" }}>{currentAudio.name}</strong>
+                <span style={{ fontSize: "10px", opacity: 0.8 }}>
+                  {isPlaying ? `سورة ${activeSurahName}` : "متوقف مؤقتًا"}
+                </span>
+              </div>
+              <span className="player-icon" style={{ fontSize: "18px" }}>{isPlaying ? "♫" : "♪"}</span>
+            </div>
+
           </div>
 
+          {/* شريط التقدم والوقت */}
           <div style={{ display: "flex", width: "100%", alignItems: "center", gap: "10px", fontSize: "11px", opacity: 0.9 }}>
             <span>{formatTime(currentTime)}</span>
             <input
