@@ -25,6 +25,13 @@ type Reciter = {
   server: string;
 };
 
+type DhikrItem = {
+  id: number;
+  title: string;
+  text: string;
+  maxCount: number;
+};
+
 export default function App() {
   const [currentTab, setCurrentTab] = useState<"surahs" | "audio">("surahs");
   const [surahs, setSurahs] = useState<Surah[]>([]);
@@ -41,35 +48,44 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // حالة عدادات الأذكار
+  const [dhikrCounts, setDhikrCounts] = useState<{ [key: number]: number }>({
+    1: 3,
+    2: 3,
+    3: 100,
+    4: 3,
+  });
+
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const reciters: Reciter[] = [
-    {
-      id: 1,
-      name: "مشاري العفاسي",
-      server: "https://server8.mp3quran.net/afs/",
-    },
-    {
-      id: 2,
-      name: "عبد الباسط عبد الصمد",
-      server: "https://server7.mp3quran.net/basit/",
-    },
-    {
-      id: 3,
-      name: "محمود خليل الحصري",
-      server: "https://server13.mp3quran.net/husr/",
-    },
-    {
-      id: 4,
-      name: "ماهر المعيقلي",
-      server: "https://server11.mp3quran.net/maher/",
-    },
-    {
-      id: 5,
-      name: "محمد صديق المنشاوي",
-      server: "https://server10.mp3quran.net/minsh/",
-    },
+    { id: 1, name: "مشاري العفاسي", server: "https://server8.mp3quran.net/afs/" },
+    { id: 2, name: "عبد الباسط عبد الصمد", server: "https://server7.mp3quran.net/basit/" },
+    { id: 3, name: "محمود خليل الحصري", server: "https://server13.mp3quran.net/husr/" },
+    { id: 4, name: "ماهر المعيقلي", server: "https://server11.mp3quran.net/maher/" },
+    { id: 5, name: "محمد صديق المنشاوي", server: "https://server10.mp3quran.net/minsh/" },
   ];
+
+  const adhkarList: DhikrItem[] = [
+    { id: 1, title: "أذكار الصباح والمساء", text: "رضيت بالله رباً، وبالإسلام ديناً، وبمحمد صلى الله عليه وسلم نبياً.", maxCount: 3 },
+    { id: 2, title: "دعاء الاستعاذة", text: "اللهم إني أعوذ بك من الهم والحزن، والعجز والكسل، والبخل والجبن، وغلبة الدين وقهر الرجال.", maxCount: 3 },
+    { id: 3, title: "التسبيح والتحميد", text: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ العَظِيمِ.", maxCount: 100 },
+    { id: 4, title: "سيد الاستغفار", text: "اللهم أنت ربي لا إله إلا أنت، خلقتني وأنا عبدك، وأنا على عهدك ووعدك ما استطعت...", maxCount: 1 },
+  ];
+
+  const handleDhikrClick = (id: number) => {
+    setDhikrCounts((prev) => {
+      const current = prev[id] ?? 0;
+      if (current > 0) {
+        return { ...prev, [id]: current - 1 };
+      }
+      return prev;
+    });
+  };
+
+  const resetDhikr = (id: number, max: number) => {
+    setDhikrCounts((prev) => ({ ...prev, [id]: max }));
+  };
 
   useEffect(() => {
     fetchAllSurahs();
@@ -553,14 +569,85 @@ export default function App() {
             </div>
           </section>
         )}
+
+        {/* ================= قسم الأذكار والتسبيح في أسفل الصفحة ================= */}
+        {!selectedSurah && (
+          <section className="section" style={{ marginTop: "40px", borderTop: "1px solid rgba(16, 185, 129, 0.2)", paddingTop: "30px" }}>
+            <div className="section-heading">
+              <div>
+                <span className="section-eyebrow"> ذِكْرُ اللهِ حياةُ القُلُوبِ </span>
+                <h2>حصن المسلم — الأذكار</h2>
+                <p>اضغط على الذكر لتحديث العداد والتسبيح</p>
+              </div>
+              <span className="heading-decoration">📿</span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px", marginTop: "20px" }}>
+              {adhkarList.map((dhikr) => {
+                const current = dhikrCounts[dhikr.id] ?? dhikr.maxCount;
+                return (
+                  <div
+                    key={dhikr.id}
+                    onClick={() => handleDhikrClick(dhikr.id)}
+                    style={{
+                      background: "linear-gradient(145deg, #16221c, #111a15)",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                      borderRadius: "14px",
+                      padding: "20px",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: "14px",
+                      transition: "transform 0.2s ease, border-color 0.2s ease",
+                      boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)"
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <strong style={{ color: "#34D399", fontSize: "15px" }}>{dhikr.title}</strong>
+                        <span style={{ fontSize: "11px", background: "rgba(16, 185, 129, 0.15)", color: "#10B981", padding: "2px 8px", borderRadius: "10px" }}>
+                          المتبقي: {current}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: "14px", lineHeight: "1.8", color: "#e2e8f0", margin: 0 }}>
+                        {dhikr.text}
+                      </p>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "10px" }}>
+                      <span style={{ fontSize: "12px", color: "#9ca3af" }}>انقر للتسبيح 👆</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resetDhikr(dhikr.id, dhikr.maxCount);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                          color: "#34D399",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                          cursor: "pointer"
+                        }}
+                      >
+                        إعادة تعيين
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
-      {/* مشغل الصوت المصغر مع تعديل التخطيط لضمان بقاء زر الإغلاق داخل الإطار */}
+      {/* مشغل الصوت المصغر */}
       {currentAudio && (
         <div className="mini-player" style={{ flexDirection: "column", gap: "10px", padding: "14px 18px", boxSizing: "border-box" }}>
           <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
             
-            {/* زر الإغلاق وأزرار التحكم */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <button
                 onClick={() => {
@@ -597,7 +684,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* معلومات القارئ والسورة */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", overflow: "hidden" }}>
               <div className="player-info" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <strong style={{ fontSize: "13px", display: "block" }}>{currentAudio.name}</strong>
@@ -610,7 +696,6 @@ export default function App() {
 
           </div>
 
-          {/* شريط التقدم والوقت */}
           <div style={{ display: "flex", width: "100%", alignItems: "center", gap: "10px", fontSize: "11px", opacity: 0.9 }}>
             <span>{formatTime(currentTime)}</span>
             <input
