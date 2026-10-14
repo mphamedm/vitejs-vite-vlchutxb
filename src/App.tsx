@@ -22,7 +22,7 @@ type SurahDetails = Surah & {
 type Reciter = {
   id: number;
   name: string;
-  server: string; // رابط المجلد الأساسي للقارئ
+  server: string;
 };
 
 export default function App() {
@@ -35,16 +35,14 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // حالات المشغل واختيار السورة الصوتية
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
-  const [selectedAudioSurah, setSelectedAudioSurah] = useState<number>(1); // السورة الافتتاحية (الفاتحة)
+  const [selectedAudioSurah, setSelectedAudioSurah] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // روابط المجلدات الأساسية للقراء (تتيح تشغيل أي سورة من 1 إلى 114)
   const reciters: Reciter[] = [
     {
       id: 1,
@@ -118,7 +116,6 @@ export default function App() {
     }
   }
 
-  // تشغيل تلاوة القارئ للسورة المحددة
   async function playReciterAudio(reciter: Reciter, surahNum?: number) {
     const audio = audioRef.current;
     if (!audio) return;
@@ -473,22 +470,56 @@ export default function App() {
 
             {error && <div className="error-message">{error}</div>}
 
-            {/* لوحة اختيار السورة للتلاوة */}
-            <div style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <label style={{ fontSize: "14px", color: "#34D399", fontWeight: "bold" }}>
-                📖 اختر السورة المراد الاستماع إليها:
-              </label>
-              <select
-                value={selectedAudioSurah}
-                onChange={(e) => setSelectedAudioSurah(Number(e.target.value))}
-                style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "#121212", color: "#fff", border: "1px solid #333", outline: "none", fontSize: "14px", cursor: "pointer" }}
-              >
-                {surahs.map((surah) => (
-                  <option key={surah.number} value={surah.number}>
-                    {surah.number}. {surah.name} ({surah.numberOfAyahs} آية)
-                  </option>
-                ))}
-              </select>
+            {/* لوحة اختيار السورة بتصميم متوافق تماماً مع إستايل الصفحة */}
+            <div style={{ 
+              background: "linear-gradient(145deg, #16221c, #111a15)", 
+              border: "1px solid rgba(16, 185, 129, 0.3)", 
+              padding: "20px 24px", 
+              borderRadius: "16px", 
+              marginBottom: "30px", 
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
+              display: "flex", 
+              flexDirection: "column", 
+              gap: "12px",
+              position: "relative",
+              overflow: "hidden"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label style={{ fontSize: "15px", color: "#34D399", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>۞</span> اختر السورة المراد الاستماع إليها:
+                </label>
+                <span style={{ fontSize: "12px", color: "#10B981", opacity: 0.8, background: "rgba(16, 185, 129, 0.1)", padding: "4px 10px", borderRadius: "20px" }}>
+                  السورة الحالية: {activeSurahName}
+                </span>
+              </div>
+              <div style={{ position: "relative" }}>
+                <select
+                  value={selectedAudioSurah}
+                  onChange={(e) => setSelectedAudioSurah(Number(e.target.value))}
+                  style={{ 
+                    width: "100%", 
+                    padding: "14px 18px", 
+                    borderRadius: "12px", 
+                    background: "#0d1411", 
+                    color: "#f3f4f6", 
+                    border: "1px solid rgba(16, 185, 129, 0.2)", 
+                    outline: "none", 
+                    fontSize: "15px", 
+                    cursor: "pointer",
+                    appearance: "none",
+                    fontFamily: "inherit"
+                  }}
+                >
+                  {surahs.map((surah) => (
+                    <option key={surah.number} value={surah.number} style={{ background: "#121212", color: "#fff" }}>
+                      {surah.number}. {surah.name} — ({surah.revelationType === "Meccan" ? "مكية" : "مدنية"} • {surah.numberOfAyahs} آية)
+                    </option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", left: "18px", top: "50%”, transform: "translateY(-50%)", color: "#34D399", pointerEvents: "none", fontSize: "12px" }}>
+                  ▼
+                </span>
+              </div>
             </div>
 
             <div className="section-heading">
