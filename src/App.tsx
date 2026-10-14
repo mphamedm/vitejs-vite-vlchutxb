@@ -2,7 +2,7 @@ const { useState, useEffect, useRef } = React;
 
 function App() {
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-    const [currentTab, setCurrentTab] = useState('surahs'); // 'surahs', 'audio', 'search'
+    const [currentTab, setCurrentTab] = useState('surahs');
     const [surahs, setSurahs] = useState([]);
     const [selectedSurah, setSelectedSurah] = useState(null);
     const [surahDetails, setSurahDetails] = useState(null);
@@ -10,12 +10,10 @@ function App() {
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     
-    // مشغل الصوت
     const [currentAudio, setCurrentAudio] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef(null);
 
-    // قائمة مشاهير القراء للاستماع المباشر (عبر واجهة القرآن الكريم الصوتية العامة API)
     const [reciters] = useState([
         { id: 1, name: 'المنشاوي (مجوّد)', server: 'https://www.islamweb.net/audio/listen.php?audioid=141&type=mp3' },
         { id: 2, name: 'عبد الباسط عبد الصمد', server: 'https://www.islamweb.net/audio/listen.php?audioid=33&type=mp3' },
@@ -37,7 +35,6 @@ function App() {
         setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
     };
 
-    // جلب قائمة السور من API القرآن الكريم العام
     const fetchAllSurahs = async () => {
         setLoadingSurahs(true);
         try {
@@ -53,7 +50,6 @@ function App() {
         }
     };
 
-    // جلب تفاصيل السورة والآيات
     const fetchSurahDetails = async (surahNumber) => {
         setLoadingDetails(true);
         try {
@@ -97,19 +93,17 @@ function App() {
 
     return React.createElement('div', { className: 'app', style: { maxWidth: '900px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, sans-serif' } },
         
-        // عنصر الصوت المخفي
         React.createElement('audio', { ref: audioRef, onEnded: () => setIsPlaying(false) }),
 
-        // شريط التنقل العلوي
         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid var(--border, #eaeaea)' } },
             React.createElement('div', { style: { display: 'flex', gap: '10px' } },
                 React.createElement('button', { 
                     onClick: () => { setSelectedSurah(null); setCurrentTab('surahs'); },
-                    style: { padding: '8px 16px', borderRadius: '8px', border: 'none', background: currentTab === 'surahs' ? 'var(--primary, #10B981)' : 'transparent', color: currentTab === 'surahs' ? '#fff' : 'inherit', cursor: 'pointer', fontWeight: 'bold' }
+                    style: { padding: '8px 16px', borderRadius: '8px', border: 'none', background: currentTab === 'surahs' ? '#10B981' : 'transparent', color: currentTab === 'surahs' ? '#fff' : 'inherit', cursor: 'pointer', fontWeight: 'bold' }
                 }, '📖 المصحف الشريف'),
                 React.createElement('button', { 
                     onClick: () => setCurrentTab('audio'),
-                    style: { padding: '8px 16px', borderRadius: '8px', border: 'none', background: currentTab === 'audio' ? 'var(--primary, #10B981)' : 'transparent', color: currentTab === 'audio' ? '#fff' : 'inherit', cursor: 'pointer', fontWeight: 'bold' }
+                    style: { padding: '8px 16px', borderRadius: '8px', border: 'none', background: currentTab === 'audio' ? '#10B981' : 'transparent', color: currentTab === 'audio' ? '#fff' : 'inherit', cursor: 'pointer', fontWeight: 'bold' }
                 }, '🎧 التلاوات الصوتية')
             ),
             React.createElement('button', { 
@@ -118,13 +112,11 @@ function App() {
             }, theme === 'dark' ? '☀️ الفاتح' : '🌙 الداكن')
         ),
 
-        // الترويسة الرئيسية
         React.createElement('div', { style: { textAlign: 'center', marginBottom: '30px' } },
-            React.createElement('h1', { style: { fontSize: '28px', marginBottom: '8px', color: 'var(--primary, #10B981)' } }, 'القرآن الكريم وتلاواته'),
+            React.createElement('h1', { style: { fontSize: '28px', marginBottom: '8px', color: '#10B981' } }, 'القرآن الكريم وتلاواته'),
             React.createElement('p', { style: { opacity: '0.7', fontSize: '14px' } }, 'اقرأ واستمع إلى كتاب الله عز وجل بكل سهولة ويسر')
         ),
 
-        // مشغل الصوت العائم إذا كان يعمل
         currentAudio && React.createElement('div', { style: { background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10B981', padding: '15px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
                 React.createElement('span', { style: { fontSize: '24px' } }, isPlaying ? '🔊' : '⏸️'),
@@ -139,9 +131,7 @@ function App() {
             }, isPlaying ? 'إيقاف مؤقت' : 'تشغيل')
         ),
 
-        // المحتوى حسب التبويب النشط
         currentTab === 'surahs' && !selectedSurah && React.createElement('div', null,
-            // شريط البحث
             React.createElement('div', { style: { marginBottom: '20px' } },
                 React.createElement('input', { 
                     type: 'text',
@@ -157,7 +147,7 @@ function App() {
                     React.createElement('div', { 
                         key: surah.number,
                         onClick: () => fetchSurahDetails(surah.number),
-                        style: { padding: '16px', borderRadius: '10px', border: '1px solid var(--border, #e2e8f0)', background: 'var(--card-bg, #fff)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s' },
+                        style: { padding: '16px', borderRadius: '10px', border: '1px solid var(--border, #e2e8f0)', background: 'var(--card-bg, #fff)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
                     },
                         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
                             React.createElement('span', { style: { width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' } }, surah.number),
@@ -172,7 +162,6 @@ function App() {
             )
         ),
 
-        // عرض تفاصيل السورة والآيات
         currentTab === 'surahs' && selectedSurah && React.createElement('div', null,
             React.createElement('button', { 
                 onClick: () => setSelectedSurah(null),
@@ -185,12 +174,11 @@ function App() {
                     React.createElement('h2', { style: { fontSize: '24px', color: '#10B981', marginBottom: '5px' } }, surahDetails.name),
                     React.createElement('p', { style: { fontSize: '13px', opacity: '0.7' } }, `${surahDetails.englishName} — عدد الآيات: ${surahDetails.numberOfAyahs}`)
                 ),
-                // البسملة (إذا لم تكن التوبة)
-                surahDetails.number !== 9 && React.createElement('div', { style: { textAlign: 'center', fontSize: '20px', fontFamily: 'Traditional Arabic, serif', marginBottom: '20px', color: '#10B981', fontWeight: 'bold' } }, 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ'),
+                surahDetails.number !== 9 && React.createElement('div', { style: { textAlign: 'center', fontSize: '20px', marginBottom: '20px', color: '#10B981', fontWeight: 'bold' } }, 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ'),
 
                 React.createElement('div', { style: { lineHeight: '2.5', fontSize: '18px', textAlign: 'justify', background: 'var(--card-bg, #fff)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border, #e2e8f0)' } },
                     surahDetails.ayahs.map(ayah => 
-                        React.createElement('span', { key: ayah.number, style: { fontFamily: 'Traditional Arabic, serif' } },
+                        React.createElement('span', { key: ayah.number },
                             ` ${ayah.text} `,
                             React.createElement('span', { style: { display: 'inline-block', fontSize: '12px', padding: '2px 6px', margin: '0 4px', borderRadius: '50%', border: '1px solid #10B981', color: '#10B981', verticalAlign: 'middle' } }, ayah.numberInSurah)
                         )
@@ -199,7 +187,6 @@ function App() {
             )
         ),
 
-        // تبويب التلاوات الصوتية
         currentTab === 'audio' && React.createElement('div', null,
             React.createElement('h3', { style: { marginBottom: '15px', fontSize: '18px' } }, '🎙️ نخبة القراء والمشايخ'),
             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
@@ -221,11 +208,10 @@ function App() {
             )
         ),
 
-        // تذييل الصفحة
-        React.createElement('footer', { style: { textAlign: 'center', marginTop: '40px', paddingT: '20px', borderTop: '1px solid var(--border, #eaeaea)', opacity: '0.6', fontSize: '12px' } },
+        React.createElement('footer', { style: { textAlign: 'center', marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--border, #eaeaea)', opacity: '0.6', fontSize: '12px' } },
             '📖 موقع القرآن الكريم — صدقة جارية إن شاء الله'
         )
     );
 }
 
-ReactDOM.render(React.createElement(App), document.getElementById('root'));
+export default App;
