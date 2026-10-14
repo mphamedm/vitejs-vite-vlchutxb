@@ -33,7 +33,7 @@ type DhikrItem = {
 };
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<"surahs" | "audio">("surahs");
+  const [currentTab, setCurrentTab] = useState<"surahs" | "audio" | "adhkar">("surahs");
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
   const [surahDetails, setSurahDetails] = useState<SurahDetails | null>(null);
@@ -48,12 +48,12 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // حالة عدادات الأذكار
+  // حالات عدادات الأذكار
   const [dhikrCounts, setDhikrCounts] = useState<{ [key: number]: number }>({
     1: 3,
     2: 3,
     3: 100,
-    4: 3,
+    4: 1,
   });
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -258,12 +258,19 @@ export default function App() {
           >
             التلاوات الصوتية
           </button>
+          <button
+            className={currentTab === "adhkar" ? "nav-link active" : "nav-link"}
+            onClick={() => setCurrentTab("adhkar")}
+          >
+            حصن المسلم (الأذكار)
+          </button>
         </nav>
         <span className="topbar-decoration">﷽</span>
       </header>
 
       <main className="main-content" id="home">
-        {!selectedSurah && currentTab === "surahs" && (
+        {/* صفحة المصحف الشريف */}
+        {currentTab === "surahs" && selectedSurah === null && (
           <>
             <section className="hero">
               <div className="hero-pattern">۞</div>
@@ -345,13 +352,7 @@ export default function App() {
                   {error}
                   <button
                     className="retry-button"
-                    onClick={() => {
-                      if (selectedSurah) {
-                        fetchSurahDetails(selectedSurah);
-                      } else {
-                        fetchAllSurahs();
-                      }
-                    }}
+                    onClick={() => fetchAllSurahs()}
                   >
                     إعادة المحاولة
                   </button>
@@ -401,6 +402,7 @@ export default function App() {
           </>
         )}
 
+        {/* عرض تفاصيل الآيات والسورة */}
         {currentTab === "surahs" && selectedSurah !== null && (
           <section className="reader-section">
             <button
@@ -475,6 +477,7 @@ export default function App() {
           </section>
         )}
 
+        {/* صفحة التلاوات الصوتية */}
         {currentTab === "audio" && (
           <section className="section audio-section">
             <div className="audio-hero">
@@ -570,13 +573,13 @@ export default function App() {
           </section>
         )}
 
-        {/* ================= قسم الأذكار والتسبيح في أسفل الصفحة ================= */}
-        {!selectedSurah && (
-          <section className="section" style={{ marginTop: "40px", borderTop: "1px solid rgba(16, 185, 129, 0.2)", paddingTop: "30px" }}>
+        {/* صفحة الأذكار المستقلة */}
+        {currentTab === "adhkar" && (
+          <section className="section" style={{ paddingTop: "10px" }}>
             <div className="section-heading">
               <div>
                 <span className="section-eyebrow"> ذِكْرُ اللهِ حياةُ القُلُوبِ </span>
-                <h2>حصن المسلم — الأذكار</h2>
+                <h2>حصن المسلم — الأذكار والتسبيح</h2>
                 <p>اضغط على الذكر لتحديث العداد والتسبيح</p>
               </div>
               <span className="heading-decoration">📿</span>
@@ -719,6 +722,7 @@ export default function App() {
         <span> القرآن الكريم — صدقة جارية بإذن الله </span>
       </footer>
 
+      {/* شريط التنقل السفلي للجوال */}
       <nav className="mobile-nav">
         <button
           className={currentTab === "surahs" ? "mobile-active" : ""}
@@ -735,6 +739,12 @@ export default function App() {
           onClick={() => setCurrentTab("audio")}
         >
           <span>♫</span> التلاوات
+        </button>
+        <button
+          className={currentTab === "adhkar" ? "mobile-active" : ""}
+          onClick={() => setCurrentTab("adhkar")}
+        >
+          <span>📿</span> الأذكار
         </button>
       </nav>
     </div>
