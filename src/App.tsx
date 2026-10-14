@@ -22,7 +22,7 @@ type SurahDetails = Surah & {
 type Reciter = {
   id: number;
   name: string;
-  server: string;
+  server: string; // رابط المجلد الأساسي للقارئ
 };
 
 export default function App() {
@@ -35,40 +35,41 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // حالات المشغل
+  // حالات المشغل واختيار السورة الصوتية
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
+  const [selectedAudioSurah, setSelectedAudioSurah] = useState<number>(1); // السورة الافتتاحية (الفاتحة)
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // روابط مباشرة ومستقرة لتلاوة سورة الفاتحة كمثال لكل قارئ
+  // روابط المجلدات الأساسية للقراء (تتيح تشغيل أي سورة من 1 إلى 114)
   const reciters: Reciter[] = [
     {
       id: 1,
       name: "مشاري العفاسي",
-      server: "https://server8.mp3quran.net/afs/001.mp3",
+      server: "https://server8.mp3quran.net/afs/",
     },
     {
       id: 2,
       name: "عبد الباسط عبد الصمد",
-      server: "https://server7.mp3quran.net/basit/001.mp3",
+      server: "https://server7.mp3quran.net/basit/",
     },
     {
       id: 3,
       name: "محمود خليل الحصري",
-      server: "https://server13.mp3quran.net/husr/001.mp3",
+      server: "https://server13.mp3quran.net/husr/",
     },
     {
       id: 4,
       name: "ماهر المعيقلي",
-      server: "https://server11.mp3quran.net/maher/001.mp3",
+      server: "https://server11.mp3quran.net/maher/",
     },
     {
       id: 5,
       name: "محمد صديق المنشاوي",
-      server: "https://server10.mp3quran.net/minsh/001.mp3",
+      server: "https://server10.mp3quran.net/minsh/",
     },
   ];
 
@@ -117,11 +118,16 @@ export default function App() {
     }
   }
 
-  async function playReciterAudio(reciter: Reciter) {
+  // تشغيل تلاوة القارئ للسورة المحددة
+  async function playReciterAudio(reciter: Reciter, surahNum?: number) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (currentAudio?.id === reciter.id) {
+    const targetSurah = surahNum || selectedAudioSurah;
+    const formattedSurahNumber = String(targetSurah).padStart(3, "0");
+    const audioUrl = `${reciter.server}${formattedSurahNumber}.mp3`;
+
+    if (currentAudio?.id === reciter.id && audio.src.includes(formattedSurahNumber)) {
       if (audio.paused) {
         try {
           await audio.play();
@@ -137,9 +143,11 @@ export default function App() {
     }
 
     setCurrentAudio(reciter);
+    if (surahNum) setSelectedAudioSurah(surahNum);
     setIsPlaying(false);
     setError("");
-    audio.src = reciter.server;
+
+    audio.src = audioUrl;
     audio.load();
     try {
       await audio.play();
@@ -153,14 +161,14 @@ export default function App() {
     if (!currentAudio) return;
     const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
     const nextIndex = (currentIndex + 1) % reciters.length;
-    playReciterAudio(reciters[nextIndex]);
+    playReciterAudio(reciters[nextIndex], selectedAudioSurah);
   };
 
   const playPrevReciter = () => {
     if (!currentAudio) return;
     const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
     const prevIndex = (currentIndex - 1 + reciters.length) % reciters.length;
-    playReciterAudio(reciters[prevIndex]);
+    playReciterAudio(reciters[prevIndex], selectedAudioSurah);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,6 +194,8 @@ export default function App() {
       String(surah.number).includes(query)
     );
   });
+
+  const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
   return (
     <div className="app" dir="rtl">
@@ -463,10 +473,28 @@ export default function App() {
 
             {error && <div className="error-message">{error}</div>}
 
+            {/* لوحة اختيار السورة للتلاوة */}
+            <div style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", flexDirection: "column", gap: "10px" }}>
+              <label style={{ fontSize: "14px", color: "#34D399", fontWeight: "bold" }}>
+                📖 اختر السورة المراد الاستماع إليها:
+              </label>
+              <select
+                value={selectedAudioSurah}
+                onChange={(e) => setSelectedAudioSurah(Number(e.target.value))}
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "#121212", color: "#fff", border: "1px solid #333", outline: "none", fontSize: "14px", cursor: "pointer" }}
+              >
+                {surahs.map((surah) => (
+                  <option key={surah.number} value={surah.number}>
+                    {surah.number}. {surah.name} ({surah.numberOfAyahs} آية)
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="section-heading">
               <div>
                 <h2>أصوات من نور</h2>
-                <p>اختر قارئك المفضل واستمع إلى تلاوته</p>
+                <p>اختر قارئك المفضل واستمع إلى السورة المحددة</p>
               </div>
               <span className="heading-decoration">♫</span>
             </div>
@@ -481,13 +509,13 @@ export default function App() {
                       <span className="reciter-index"> {String(index + 1).padStart(2, "0")} </span>
                     </div>
                     <h3>{reciter.name}</h3>
-                    <p> {active && isPlaying ? "تُبث التلاوة الآن" : "قارئ القرآن الكريم"} </p>
+                    <p> {active && isPlaying ? `تُبث ${activeSurahName}` : "قارئ القرآن الكريم"} </p>
                     <button
                       className={`listen-button ${active && isPlaying ? "listen-active" : ""}`}
                       onClick={() => playReciterAudio(reciter)}
                     >
                       <span> {active && isPlaying ? "Ⅱ" : "▶"} </span>
-                      {active && isPlaying ? "إيقاف مؤقت" : "استمع الآن"}
+                      {active && isPlaying ? "إيقاف مؤقت" : `استمع لـ ${activeSurahName}`}
                     </button>
                   </div>
                 );
@@ -506,7 +534,7 @@ export default function App() {
               <div className="player-info">
                 <strong style={{ fontSize: "14px" }}>{currentAudio.name}</strong>
                 <span style={{ fontSize: "11px", opacity: 0.8 }}>
-                  {isPlaying ? "جاري تشغيل التلاوة..." : "متوقف مؤقتًا"}
+                  {isPlaying ? `جاري تشغيل (سورة ${activeSurahName})...` : "متوقف مؤقتًا"}
                 </span>
               </div>
             </div>
@@ -521,7 +549,7 @@ export default function App() {
               </button>
               <button
                 className="player-control"
-                onClick={() => playReciterAudio(currentAudio)}
+                onClick={() => playReciterAudio(currentAudio, selectedAudioSurah)}
                 aria-label={isPlaying ? "إيقاف مؤقت" : "تشغيل"}
                 style={{ width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
