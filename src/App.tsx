@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function App() {
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
     const [currentTab, setCurrentTab] = useState('surahs');
     const [surahs, setSurahs] = useState<any[]>([]);
-    const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
+    const [selectedSurah, setSelectedSurah] = useState<any>(null);
     const [surahDetails, setSurahDetails] = useState<any>(null);
     const [loadingSurahs, setLoadingSurahs] = useState(false);
     const [loadingDetails, setLoadingDetails] = useState(false);
@@ -12,7 +12,7 @@ export default function App() {
     
     const [currentAudio, setCurrentAudio] = useState<any>(null);
     const [isPlaying, setIsPlaying] = useState(false);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
 
     const reciters = [
         { id: 1, name: 'المنشاوي (مجوّد)', server: 'https://www.islamweb.net/audio/listen.php?audioid=141&type=mp3' },
@@ -156,7 +156,7 @@ export default function App() {
                         <div style={{ textAlign: 'center', padding: '40px', opacity: '0.7' }}>⏳ جاري تحميل السور...</div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-                            {filteredSurahs.map(surah => (
+                            {filteredSurahs.map((surah: any) => (
                                 <div 
                                     key={surah.number}
                                     onClick={() => fetchSurahDetails(surah.number)}
