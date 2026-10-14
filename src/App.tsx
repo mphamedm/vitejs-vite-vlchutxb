@@ -35,7 +35,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // حالات المشغل المطورة
+  // حالات المشغل
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -43,31 +43,32 @@ export default function App() {
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // روابط مباشرة ومستقرة لتلاوة سورة الفاتحة كمثال لكل قارئ
   const reciters: Reciter[] = [
     {
       id: 1,
-      name: "محمد صديق المنشاوي",
-      server: "https://www.islamweb.net/audio/listen.php?audioid=141&type=mp3",
+      name: "مشاري العفاسي",
+      server: "https://server8.mp3quran.net/afs/001.mp3",
     },
     {
       id: 2,
       name: "عبد الباسط عبد الصمد",
-      server: "https://www.islamweb.net/audio/listen.php?audioid=33&type=mp3",
+      server: "https://server7.mp3quran.net/basit/001.mp3",
     },
     {
       id: 3,
       name: "محمود خليل الحصري",
-      server: "https://www.islamweb.net/audio/listen.php?audioid=51&type=mp3",
+      server: "https://server13.mp3quran.net/husr/001.mp3",
     },
     {
       id: 4,
       name: "ماهر المعيقلي",
-      server: "https://www.islamweb.net/audio/listen.php?audioid=184&type=mp3",
+      server: "https://server11.mp3quran.net/maher/001.mp3",
     },
     {
       id: 5,
-      name: "سعد الغامدي",
-      server: "https://www.islamweb.net/audio/listen.php?audioid=115&type=mp3",
+      name: "محمد صديق المنشاوي",
+      server: "https://server10.mp3quran.net/minsh/001.mp3",
     },
   ];
 
@@ -80,9 +81,7 @@ export default function App() {
     setError("");
     try {
       const response = await fetch("https://api.alquran.cloud/v1/surah");
-      if (!response.ok) {
-        throw new Error("تعذر الاتصال بالخادم");
-      }
+      if (!response.ok) throw new Error("تعذر الاتصال بالخادم");
       const data = await response.json();
       if (data.code === 200) {
         setSurahs(data.data);
@@ -103,9 +102,7 @@ export default function App() {
     setError("");
     try {
       const response = await fetch(`https://api.alquran.cloud/v1/surah/${number}`);
-      if (!response.ok) {
-        throw new Error("تعذر تحميل السورة");
-      }
+      if (!response.ok) throw new Error("تعذر تحميل السورة");
       const data = await response.json();
       if (data.code === 200) {
         setSurahDetails(data.data);
@@ -128,11 +125,13 @@ export default function App() {
       if (audio.paused) {
         try {
           await audio.play();
+          setIsPlaying(true);
         } catch {
           setError("تعذر تشغيل الصوت. حاول مرة أخرى.");
         }
       } else {
         audio.pause();
+        setIsPlaying(false);
       }
       return;
     }
@@ -144,12 +143,12 @@ export default function App() {
     audio.load();
     try {
       await audio.play();
+      setIsPlaying(true);
     } catch {
-      setError("تعذر تشغيل التلاوة. قد يكون رابط الصوت غير متاح.");
+      setError("تعذر تشغيل التلاوة. تأكد من اتصال الإنترنت.");
     }
   }
 
-  // التبديل للقارئ التالي
   const playNextReciter = () => {
     if (!currentAudio) return;
     const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
@@ -157,7 +156,6 @@ export default function App() {
     playReciterAudio(reciters[nextIndex]);
   };
 
-  // التبديل للقارئ السابق
   const playPrevReciter = () => {
     if (!currentAudio) return;
     const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
@@ -165,7 +163,6 @@ export default function App() {
     playReciterAudio(reciters[prevIndex]);
   };
 
-  // التحكم بشريط التقديم (Seek)
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = Number(e.target.value);
     setCurrentTime(time);
@@ -174,7 +171,6 @@ export default function App() {
     }
   };
 
-  // تنسيق الوقت (دقائق:ثواني)
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return "00:00";
     const minutes = Math.floor(secs / 60);
@@ -501,7 +497,7 @@ export default function App() {
         )}
       </main>
 
-      {/* مشغل الصوت المطور والمحسّن */}
+      {/* شريط المشغل الصوتي السفلي */}
       {currentAudio && (
         <div className="mini-player" style={{ flexDirection: "column", gap: "8px", padding: "14px 20px" }}>
           <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
@@ -515,7 +511,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* أتحكم بالتشغيل السابق، التوقف/التشغيل، والتالي، وإغلاق المشغل */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <button
                 onClick={playPrevReciter}
@@ -553,7 +548,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* شريط التقدم والوقت */}
           <div style={{ display: "flex", width: "100%", alignItems: "center", gap: "10px", fontSize: "11px", opacity: 0.9 }}>
             <span>{formatTime(currentTime)}</span>
             <input
