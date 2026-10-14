@@ -1,248 +1,600 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
+import "./App.css";
+
+type Surah = {
+  number: number;
+  name: string;
+  englishName: string;
+  numberOfAyahs: number;
+  revelationType: string;
+};
+
+type Ayah = {
+  number: number;
+  numberInSurah: number;
+  text: string;
+};
+
+type SurahDetails = Surah & {
+  ayahs: Ayah[];
+};
+
+type Reciter = {
+  id: number;
+  name: string;
+  server: string;
+};
 
 export default function App() {
-    const [currentTab, setCurrentTab] = useState('surahs');
-    const [surahs, setSurahs] = useState<any[]>([]);
-    const [selectedSurah, setSelectedSurah] = useState<any>(null);
-    const [surahDetails, setSurahDetails] = useState<any>(null);
-    const [loadingSurahs, setLoadingSurahs] = useState(false);
-    const [loadingDetails, setLoadingDetails] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    
-    const [currentAudio, setCurrentAudio] = useState<any>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const audioRef = useRef<HTMLAudioElement>(null);
+  const [currentTab, setCurrentTab] = useState<"surahs" | "audio">("surahs");
+  const [surahs, setSurahs] = useState<Surah[]>([]);
+  const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
+  const [surahDetails, setSurahDetails] = useState<SurahDetails | null>(null);
+  const [loadingSurahs, setLoadingSurahs] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // حالات المشغل المطورة
+  const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
-    // قائمة القراء بروابط بث مباشرة ومستقرة (سورة الفاتحة نموذجاً)
-    const reciters = [
-        { id: 1, name: 'مشاري العفاسي', server: 'https://server8.mp3quran.net/afs/001.mp3' },
-        { id: 2, name: 'ماهر المعيقلي', server: 'https://server11.mp3quran.net/maher/001.mp3' },
-        { id: 3, name: 'عبد الباسط عبد الصمد', server: 'https://server7.mp3quran.net/basit/001.mp3' },
-        { id: 4, name: 'محمد صديق المنشاوي', server: 'https://server10.mp3quran.net/minsh/001.mp3' },
-        { id: 5, name: 'عبد الرحمن السديس', server: 'https://server11.mp3quran.net/sds/001.mp3' },
-    ];
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-    useEffect(() => {
-        fetchAllSurahs();
-    }, []);
+  const reciters: Reciter[] = [
+    {
+      id: 1,
+      name: "محمد صديق المنشاوي",
+      server: "https://www.islamweb.net/audio/listen.php?audioid=141&type=mp3",
+    },
+    {
+      id: 2,
+      name: "عبد الباسط عبد الصمد",
+      server: "https://www.islamweb.net/audio/listen.php?audioid=33&type=mp3",
+    },
+    {
+      id: 3,
+      name: "محمود خليل الحصري",
+      server: "https://www.islamweb.net/audio/listen.php?audioid=51&type=mp3",
+    },
+    {
+      id: 4,
+      name: "ماهر المعيقلي",
+      server: "https://www.islamweb.net/audio/listen.php?audioid=184&type=mp3",
+    },
+    {
+      id: 5,
+      name: "سعد الغامدي",
+      server: "https://www.islamweb.net/audio/listen.php?audioid=115&type=mp3",
+    },
+  ];
 
-    const fetchAllSurahs = async () => {
-        setLoadingSurahs(true);
+  useEffect(() => {
+    fetchAllSurahs();
+  }, []);
+
+  async function fetchAllSurahs() {
+    setLoadingSurahs(true);
+    setError("");
+    try {
+      const response = await fetch("https://api.alquran.cloud/v1/surah");
+      if (!response.ok) {
+        throw new Error("تعذر الاتصال بالخادم");
+      }
+      const data = await response.json();
+      if (data.code === 200) {
+        setSurahs(data.data);
+      } else {
+        throw new Error("تعذر تحميل السور");
+      }
+    } catch {
+      setError("تعذر تحميل قائمة السور. تحقق من اتصال الإنترنت.");
+    } finally {
+      setLoadingSurahs(false);
+    }
+  }
+
+  async function fetchSurahDetails(number: number) {
+    setSelectedSurah(number);
+    setSurahDetails(null);
+    setLoadingDetails(true);
+    setError("");
+    try {
+      const response = await fetch(`https://api.alquran.cloud/v1/surah/${number}`);
+      if (!response.ok) {
+        throw new Error("تعذر تحميل السورة");
+      }
+      const data = await response.json();
+      if (data.code === 200) {
+        setSurahDetails(data.data);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        throw new Error("تعذر تحميل السورة");
+      }
+    } catch {
+      setError("تعذر تحميل الآيات. حاول مرة أخرى.");
+    } finally {
+      setLoadingDetails(false);
+    }
+  }
+
+  async function playReciterAudio(reciter: Reciter) {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (currentAudio?.id === reciter.id) {
+      if (audio.paused) {
         try {
-            const res = await fetch('https://api.alquran.cloud/v1/surah');
-            const data = await res.json();
-            if (data.code === 200) {
-                setSurahs(data.data);
-            }
-        } catch (error) {
-            console.error('Error fetching surahs:', error);
-        } finally {
-            setLoadingSurahs(false);
+          await audio.play();
+        } catch {
+          setError("تعذر تشغيل الصوت. حاول مرة أخرى.");
         }
-    };
+      } else {
+        audio.pause();
+      }
+      return;
+    }
 
-    const fetchSurahDetails = async (surahNumber: number) => {
-        setLoadingDetails(true);
-        try {
-            const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}`);
-            const data = await res.json();
-            if (data.code === 200) {
-                setSurahDetails(data.data);
-                setSelectedSurah(surahNumber);
-            }
-        } catch (error) {
-            console.error('Error fetching surah details:', error);
-        } finally {
-            setLoadingDetails(false);
-        }
-    };
+    setCurrentAudio(reciter);
+    setIsPlaying(false);
+    setError("");
+    audio.src = reciter.server;
+    audio.load();
+    try {
+      await audio.play();
+    } catch {
+      setError("تعذر تشغيل التلاوة. قد يكون رابط الصوت غير متاح.");
+    }
+  }
 
-    const playReciterAudio = (reciter: any) => {
-        if (!audioRef.current) return;
+  // التبديل للقارئ التالي
+  const playNextReciter = () => {
+    if (!currentAudio) return;
+    const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
+    const nextIndex = (currentIndex + 1) % reciters.length;
+    playReciterAudio(reciters[nextIndex]);
+  };
 
-        if (currentAudio?.id === reciter.id) {
-            if (isPlaying) {
-                audioRef.current.pause();
-                setIsPlaying(false);
-            } else {
-                audioRef.current.play().then(() => {
-                    setIsPlaying(true);
-                }).catch(err => console.error("Playback error:", err));
-            }
-        } else {
-            setCurrentAudio(reciter);
-            audioRef.current.src = reciter.server;
-            audioRef.current.load();
-            audioRef.current.play().then(() => {
-                setIsPlaying(true);
-            }).catch(err => {
-                console.error("Audio loading error:", err);
-            });
-        }
-    };
+  // التبديل للقارئ السابق
+  const playPrevReciter = () => {
+    if (!currentAudio) return;
+    const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
+    const prevIndex = (currentIndex - 1 + reciters.length) % reciters.length;
+    playReciterAudio(reciters[prevIndex]);
+  };
 
-    const filteredSurahs = surahs.filter(s => 
-        s.name.includes(searchQuery) || 
-        s.englishName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(s.number).includes(searchQuery)
-    );
+  // التحكم بشريط التقديم (Seek)
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = Number(e.target.value);
+    setCurrentTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
 
+  // تنسيق الوقت (دقائق:ثواني)
+  const formatTime = (secs: number) => {
+    if (isNaN(secs)) return "00:00";
+    const minutes = Math.floor(secs / 60);
+    const seconds = Math.floor(secs % 60);
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  const filteredSurahs = surahs.filter((surah) => {
+    const query = searchQuery.trim().toLowerCase();
     return (
-        <div className="app" style={{ maxWidth: '900px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, sans-serif', backgroundColor: '#121212', color: '#e0e0e0', minHeight: '100vh' }}>
-            <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
-
-            {/* شريط التنقل العلوي */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid #2a2a2a' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
-                        onClick={() => { setSelectedSurah(null); setCurrentTab('surahs'); }}
-                        style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: currentTab === 'surahs' ? '#10B981' : '#1e1e1e', color: currentTab === 'surahs' ? '#fff' : '#b0b0b0', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                        📖 المصحف الشريف
-                    </button>
-                    <button 
-                        onClick={() => setCurrentTab('audio')}
-                        style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: currentTab === 'audio' ? '#10B981' : '#1e1e1e', color: currentTab === 'audio' ? '#fff' : '#b0b0b0', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                        🎧 التلاوات الصوتية
-                    </button>
-                </div>
-            </div>
-
-            {/* العنوان */}
-            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-                <h1 style={{ fontSize: '28px', marginBottom: '8px', color: '#34D399' }}>القرآن الكريم وتلاواته</h1>
-                <p style={{ opacity: '0.7', fontSize: '14px', color: '#9ca3af' }}>اقرأ واستمع إلى كتاب الله عز وجل بكل سهولة ويسر</p>
-            </div>
-
-            {/* البسملة البارزة في الأعلى */}
-            <div style={{ textAlign: 'center', fontSize: '24px', marginBottom: '25px', color: '#34D399', fontWeight: 'bold', fontFamily: 'Traditional Arabic, serif', letterSpacing: '1px' }}>
-                بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-            </div>
-
-            {/* مشغل الصوت */}
-            {currentAudio && (
-                <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10B981', padding: '15px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '24px' }}>{isPlaying ? '🔊' : '⏸️'}</span>
-                        <div>
-                            <div style={{ fontSize: '12px', opacity: '0.7' }}>{isPlaying ? 'جاري الاستماع إلى:' : 'متوقف مؤقتاً:'}</div>
-                            <strong style={{ color: '#fff' }}>{currentAudio.name}</strong>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => playReciterAudio(currentAudio)}
-                        style={{ padding: '6px 14px', borderRadius: '6px', background: '#10B981', color: '#fff', border: 'none', cursor: 'pointer' }}
-                    >
-                        {isPlaying ? 'إيقاف مؤقت' : 'تشغيل'}
-                    </button>
-                </div>
-            )}
-
-            {/* قائمة السور */}
-            {currentTab === 'surahs' && !selectedSurah && (
-                <div>
-                    <div style={{ marginBottom: '20px' }}>
-                        <input 
-                            type="text"
-                            placeholder="ابحث عن اسم السورة..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #333', background: '#1e1e1e', color: '#fff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }}
-                        />
-                    </div>
-                    {loadingSurahs ? (
-                        <div style={{ textAlign: 'center', padding: '40px', opacity: '0.7' }}>⏳ جاري تحميل السور...</div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-                            {filteredSurahs.map((surah: any) => (
-                                <div 
-                                    key={surah.number}
-                                    onClick={() => fetchSurahDetails(surah.number)}
-                                    style={{ padding: '16px', borderRadius: '10px', border: '1px solid #2a2a2a', background: '#1e1e1e', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s' }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>{surah.number}</span>
-                                        <div>
-                                            <strong style={{ fontSize: '16px', display: 'block', color: '#fff' }}>{surah.name}</strong>
-                                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{surah.englishName} • {surah.numberOfAyahs} آية</span>
-                                        </div>
-                                    </div>
-                                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>{surah.revelationType === 'Meccan' ? 'مكية' : 'مدنية'}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* تفاصيل السورة والآيات */}
-            {currentTab === 'surahs' && selectedSurah && (
-                <div>
-                    <button 
-                        onClick={() => setSelectedSurah(null)}
-                        style={{ marginBottom: '20px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #333', background: '#1e1e1e', color: '#fff', cursor: 'pointer', fontSize: '13px' }}
-                    >
-                        ← العودة لقائمة السور
-                    </button>
-
-                    {loadingDetails ? (
-                        <div style={{ textAlign: 'center', padding: '40px', opacity: '0.7' }}>⏳ جاري تحميل الآيات...</div>
-                    ) : surahDetails && (
-                        <div>
-                            <div style={{ textAlign: 'center', padding: '20px', background: '#1e1e1e', borderRadius: '12px', marginBottom: '20px', border: '1px solid #2a2a2a' }}>
-                                <h2 style={{ fontSize: '24px', color: '#34D399', marginBottom: '5px' }}>{surahDetails.name}</h2>
-                                <p style={{ fontSize: '13px', color: '#9ca3af' }}>{surahDetails.englishName} — عدد الآيات: {surahDetails.numberOfAyahs}</p>
-                            </div>
-                            {surahDetails.number !== 9 && (
-                                <div style={{ textAlign: 'center', fontSize: '22px', marginBottom: '20px', color: '#34D399', fontWeight: 'bold' }}>
-                                    بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                                </div>
-                            )}
-                            <div style={{ lineHeight: '2.8', fontSize: '20px', textAlign: 'justify', padding: '25px', borderRadius: '12px', background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#f3f4f6' }}>
-                                {surahDetails.ayahs.map((ayah: any) => (
-                                    <span key={ayah.number}>
-                                        {` ${ayah.text} `}
-                                        <span style={{ display: 'inline-block', fontSize: '12px', padding: '2px 6px', margin: '0 4px', borderRadius: '50%', border: '1px solid #34D399', color: '#34D399', verticalAlign: 'middle' }}>
-                                            {ayah.numberInSurah}
-                                        </span>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* التلاوات الصوتية */}
-            {currentTab === 'audio' && (
-                <div>
-                    <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#fff' }}>🎙️ نخبة القراء والمشايخ</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {reciters.map(reciter => (
-                            <div 
-                                key={reciter.id}
-                                style={{ padding: '16px', borderRadius: '10px', border: '1px solid #2a2a2a', background: '#1e1e1e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '22px' }}>🎧</span>
-                                    <strong style={{ fontSize: '16px', color: '#fff' }}>{reciter.name}</strong>
-                                </div>
-                                <button 
-                                    onClick={() => playReciterAudio(reciter)}
-                                    style={{ padding: '8px 16px', borderRadius: '8px', background: currentAudio?.id === reciter.id && isPlaying ? '#EF4444' : '#10B981', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '13px' }}
-                                >
-                                    {currentAudio?.id === reciter.id && isPlaying ? '⏸️ إيقاف' : '▶️ استماع'}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <footer style={{ textAlign: 'center', marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #2a2a2a', color: '#9ca3af', fontSize: '12px' }}>
-                📖 موقع القرآن الكريم — صدقة جارية إن شاء الله
-            </footer>
-        </div>
+      surah.name.includes(searchQuery.trim()) ||
+      surah.englishName.toLowerCase().includes(query) ||
+      String(surah.number).includes(query)
     );
+  });
+
+  return (
+    <div className="app" dir="rtl">
+      <audio
+        ref={audioRef}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+        onTimeUpdate={() => {
+          if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+        }}
+        onLoadedMetadata={() => {
+          if (audioRef.current) setDuration(audioRef.current.duration);
+        }}
+      />
+
+      <header className="topbar">
+        <a
+          href="#home"
+          className="brand"
+          onClick={(event) => {
+            event.preventDefault();
+            setCurrentTab("surahs");
+            setSelectedSurah(null);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
+          <span className="brand-icon">۞</span>
+          <span>
+            <strong>نور القرآن</strong>
+            <small>رفيقك إلى الطمأنينة</small>
+          </span>
+        </a>
+        <nav className="desktop-nav">
+          <button
+            className={currentTab === "surahs" ? "nav-link active" : "nav-link"}
+            onClick={() => {
+              setCurrentTab("surahs");
+              setSelectedSurah(null);
+            }}
+          >
+            المصحف الشريف
+          </button>
+          <button
+            className={currentTab === "audio" ? "nav-link active" : "nav-link"}
+            onClick={() => setCurrentTab("audio")}
+          >
+            التلاوات الصوتية
+          </button>
+        </nav>
+        <span className="topbar-decoration">﷽</span>
+      </header>
+
+      <main className="main-content" id="home">
+        {!selectedSurah && currentTab === "surahs" && (
+          <>
+            <section className="hero">
+              <div className="hero-pattern">۞</div>
+              <div className="hero-content">
+                <span className="hero-label"> ✦ القرآن الكريم </span>
+                <h1>
+                  اطمئن قلبك <br /> <span>بذكر الله</span>
+                </h1>
+                <p>
+                  اقرأ آيات الله بتدبر، واستمع إلى أعذب التلاوات <br className="desktop-break" /> واجعل للقرآن نصيبًا من يومك.
+                </p>
+                <button
+                  className="hero-button"
+                  onClick={() =>
+                    document.getElementById("surah-list")?.scrollIntoView({ behavior: "smooth" })
+                  }
+                >
+                  <span>۞</span> ابدأ القراءة <span>←</span>
+                </button>
+              </div>
+              <div className="hero-ornament">
+                <div className="ornament-inner">
+                  <span className="ornament-star">✦</span>
+                  <span className="ornament-bismillah">﷽</span>
+                  <span className="ornament-caption"> كِتَابٌ أَنزَلْنَاهُ إِلَيْكَ مُبَارَكٌ </span>
+                </div>
+              </div>
+            </section>
+
+            <section className="stats-grid">
+              <div className="stat-card">
+                <span className="stat-icon">📖</span>
+                <div>
+                  <strong>114</strong> <span>سورة كريمة</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <span className="stat-icon">✨</span>
+                <div>
+                  <strong>6236</strong> <span>آية قرآنية تقريبًا</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <span className="stat-icon">🎧</span>
+                <div>
+                  <strong>5</strong> <span>من القراء المميزين</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="section" id="surah-list">
+              <div className="section-heading">
+                <div>
+                  <span className="section-eyebrow"> كَلَامُ اللهِ </span>
+                  <h2>المصحف الشريف</h2>
+                  <p> اختر السورة التي ترغب في قراءتها </p>
+                </div>
+                <span className="heading-decoration">۞</span>
+              </div>
+
+              <div className="search-box">
+                <span className="search-icon">⌕</span>
+                <input
+                  type="search"
+                  placeholder="ابحث عن سورة بالاسم أو الرقم..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  aria-label="البحث عن سورة"
+                />
+                {searchQuery && (
+                  <button className="clear-search" onClick={() => setSearchQuery("")} aria-label="مسح البحث">
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {error && (
+                <div className="error-message">
+                  {error}
+                  <button
+                    className="retry-button"
+                    onClick={() => {
+                      if (selectedSurah) {
+                        fetchSurahDetails(selectedSurah);
+                      } else {
+                        fetchAllSurahs();
+                      }
+                    }}
+                  >
+                    إعادة المحاولة
+                  </button>
+                </div>
+              )}
+
+              {loadingSurahs ? (
+                <div className="loading">
+                  <span className="spinner" />
+                  <p>جاري تحضير المصحف الشريف...</p>
+                </div>
+              ) : (
+                <>
+                  <div className="results-label">
+                    <span>جميع السور</span>
+                    <span>{filteredSurahs.length} سورة</span>
+                  </div>
+                  <div className="surah-grid">
+                    {filteredSurahs.map((surah) => (
+                      <button
+                        key={surah.number}
+                        className="surah-card"
+                        onClick={() => fetchSurahDetails(surah.number)}
+                      >
+                        <span className="surah-number"> {surah.number} </span>
+                        <span className="surah-info">
+                          <strong>{surah.name}</strong>
+                          <small>
+                            {surah.numberOfAyahs} آية <span className="dot">•</span>{" "}
+                            {surah.revelationType === "Meccan" ? "مكية" : "مدنية"}
+                          </small>
+                        </span>
+                        <span className="surah-arrow">←</span>
+                      </button>
+                    ))}
+                  </div>
+                  {!filteredSurahs.length && (
+                    <div className="empty-state">
+                      <span>⌕</span>
+                      <h3>لم نعثر على السورة</h3>
+                      <p>جرب البحث باسم آخر أو برقم السورة.</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          </>
+        )}
+
+        {currentTab === "surahs" && selectedSurah !== null && (
+          <section className="reader-section">
+            <button
+              className="back-button"
+              onClick={() => {
+                setSelectedSurah(null);
+                setSurahDetails(null);
+                setError("");
+              }}
+            >
+              → العودة إلى قائمة السور
+            </button>
+
+            {error && (
+              <div className="error-message">
+                {error}
+                <button className="retry-button" onClick={() => fetchSurahDetails(selectedSurah)}>
+                  إعادة المحاولة
+                </button>
+              </div>
+            )}
+
+            {loadingDetails ? (
+              <div className="loading">
+                <span className="spinner" />
+                <p>جاري تحميل آيات السورة...</p>
+              </div>
+            ) : (
+              surahDetails && (
+                <>
+                  <div className="reader-header">
+                    <span className="reader-badge"> السورة رقم {surahDetails.number} </span>
+                    <div className="reader-frame">
+                      <span className="frame-symbol">۞</span>
+                      <h1>{surahDetails.name}</h1>
+                      <p>{surahDetails.englishName}</p>
+                      <div className="reader-meta">
+                        <span> {surahDetails.revelationType === "Meccan" ? "مكية" : "مدنية"} </span>
+                        <span>•</span>
+                        <span> {surahDetails.numberOfAyahs} آية </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {surahDetails.number !== 1 && surahDetails.number !== 9 && (
+                    <div className="basmala"> بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ </div>
+                  )}
+
+                  <article className="quran-text">
+                    {surahDetails.ayahs.map((ayah) => (
+                      <span className="ayah" key={ayah.number}>
+                        {ayah.text}{" "}
+                        <span className="ayah-number" title={`الآية ${ayah.numberInSurah}`}>
+                          {ayah.numberInSurah}
+                        </span>
+                      </span>
+                    ))}
+                  </article>
+
+                  <button
+                    className="back-button bottom-back"
+                    onClick={() => {
+                      setSelectedSurah(null);
+                      setSurahDetails(null);
+                    }}
+                  >
+                    العودة إلى جميع السور
+                  </button>
+                </>
+              )
+            )}
+          </section>
+        )}
+
+        {currentTab === "audio" && (
+          <section className="section audio-section">
+            <div className="audio-hero">
+              <span className="audio-hero-icon">♫</span>
+              <span className="section-eyebrow"> آيَاتٌ تُتْلَى بِخُشُوع </span>
+              <h1>أنصت بقلبك</h1>
+              <p> استمتع بتلاوات عطرة تملأ الروح سكينة وطمأنينة. </p>
+            </div>
+
+            {error && <div className="error-message">{error}</div>}
+
+            <div className="section-heading">
+              <div>
+                <h2>أصوات من نور</h2>
+                <p>اختر قارئك المفضل واستمع إلى تلاوته</p>
+              </div>
+              <span className="heading-decoration">♫</span>
+            </div>
+
+            <div className="reciter-grid">
+              {reciters.map((reciter, index) => {
+                const active = currentAudio?.id === reciter.id;
+                return (
+                  <div className={`reciter-card ${active ? "reciter-active" : ""}`} key={reciter.id}>
+                    <div className="reciter-top">
+                      <span className="reciter-avatar"> {active && isPlaying ? "♫" : "۞"} </span>
+                      <span className="reciter-index"> {String(index + 1).padStart(2, "0")} </span>
+                    </div>
+                    <h3>{reciter.name}</h3>
+                    <p> {active && isPlaying ? "تُبث التلاوة الآن" : "قارئ القرآن الكريم"} </p>
+                    <button
+                      className={`listen-button ${active && isPlaying ? "listen-active" : ""}`}
+                      onClick={() => playReciterAudio(reciter)}
+                    >
+                      <span> {active && isPlaying ? "Ⅱ" : "▶"} </span>
+                      {active && isPlaying ? "إيقاف مؤقت" : "استمع الآن"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* مشغل الصوت المطور والمحسّن */}
+      {currentAudio && (
+        <div className="mini-player" style={{ flexDirection: "column", gap: "8px", padding: "14px 20px" }}>
+          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span className="player-icon" style={{ fontSize: "20px" }}>{isPlaying ? "♫" : "♪"}</span>
+              <div className="player-info">
+                <strong style={{ fontSize: "14px" }}>{currentAudio.name}</strong>
+                <span style={{ fontSize: "11px", opacity: 0.8 }}>
+                  {isPlaying ? "جاري تشغيل التلاوة..." : "متوقف مؤقتًا"}
+                </span>
+              </div>
+            </div>
+
+            {/* أتحكم بالتشغيل السابق، التوقف/التشغيل، والتالي، وإغلاق المشغل */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                onClick={playPrevReciter}
+                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", padding: "4px" }}
+                title="القارئ السابق"
+              >
+                ⏮
+              </button>
+              <button
+                className="player-control"
+                onClick={() => playReciterAudio(currentAudio)}
+                aria-label={isPlaying ? "إيقاف مؤقت" : "تشغيل"}
+                style={{ width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                {isPlaying ? "Ⅱ" : "▶"}
+              </button>
+              <button
+                onClick={playNextReciter}
+                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", padding: "4px" }}
+                title="القارئ التالي"
+              >
+                ⏭
+              </button>
+              <button
+                onClick={() => {
+                  if (audioRef.current) audioRef.current.pause();
+                  setCurrentAudio(null);
+                  setIsPlaying(false);
+                }}
+                style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "16px", padding: "4px", marginRight: "8px" }}
+                title="إغلاق المشغل"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* شريط التقدم والوقت */}
+          <div style={{ display: "flex", width: "100%", alignItems: "center", gap: "10px", fontSize: "11px", opacity: 0.9 }}>
+            <span>{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              style={{ flex: 1, accentColor: "#10B981", cursor: "pointer", height: "4px" }}
+            />
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+      )}
+
+      <footer className="footer">
+        <div className="footer-symbol">۞</div>
+        <h3>نور القرآن</h3>
+        <p> وَاذْكُر رَّبَّكَ كَثِيرًا </p>
+        <div className="footer-line" />
+        <span> القرآن الكريم — صدقة جارية بإذن الله </span>
+      </footer>
+
+      <nav className="mobile-nav">
+        <button
+          className={currentTab === "surahs" ? "mobile-active" : ""}
+          onClick={() => {
+            setCurrentTab("surahs");
+            setSelectedSurah(null);
+            setSurahDetails(null);
+          }}
+        >
+          <span>۞</span> المصحف
+        </button>
+        <button
+          className={currentTab === "audio" ? "mobile-active" : ""}
+          onClick={() => setCurrentTab("audio")}
+        >
+          <span>♫</span> التلاوات
+        </button>
+      </nav>
+    </div>
+  );
 }
