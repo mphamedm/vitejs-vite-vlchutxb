@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
@@ -43,7 +44,6 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // وضع العرض في المصحف: نص أو صورة المصحف
   const [readerMode, setReaderMode] = useState<"text" | "image">("text");
 
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
@@ -52,7 +52,6 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // حالات عدادات الأذكار
   const [dhikrCounts, setDhikrCounts] = useState<{ [key: number]: number }>({
     1: 3,
     2: 3,
@@ -215,7 +214,6 @@ export default function App() {
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
-  // حساب الآية الحالية المضغوطة/المضللة أثناء التشغيل الصوتي بناءً على التقدم الزمني
   const activeAyahIndex = surahDetails && duration > 0 
     ? Math.min(
         Math.floor((currentTime / duration) * surahDetails.ayahs.length),
@@ -282,7 +280,6 @@ export default function App() {
       </header>
 
       <main className="main-content" id="home">
-        {/* صفحة المصحف الشريف */}
         {currentTab === "surahs" && selectedSurah === null && (
           <>
             <section className="hero">
@@ -412,7 +409,6 @@ export default function App() {
           </>
         )}
 
-        {/* عرض تفاصيل الآيات والسورة مع ميزة عرض صورة المصحف وتشغيل الصوت والتظليل */}
         {currentTab === "surahs" && selectedSurah !== null && (
           <section className="reader-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
@@ -428,7 +424,6 @@ export default function App() {
                 → العودة إلى قائمة السور
               </button>
 
-              {/* أزرار التبديل بين عرض النص وعرض صورة المصحف */}
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
                   onClick={() => setReaderMode("text")}
@@ -494,7 +489,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* زر تشغيل التلاوة الصوتية مباشرة داخل صفحة القراءة */}
                   <div style={{ background: "linear-gradient(145deg, #16221c, #111a15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <span style={{ fontSize: "22px" }}>🎧</span>
@@ -531,7 +525,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* عرض محتوى القراءة بناءً على الوضع المختار (نص أو صورة) */}
                   {readerMode === "text" ? (
                     <>
                       {surahDetails.number !== 1 && surahDetails.number !== 9 && (
@@ -566,22 +559,10 @@ export default function App() {
                   ) : (
                     <div style={{ textAlign: "center", padding: "20px", background: "#16221c", borderRadius: "12px", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
                       <p style={{ color: "#34D399", marginBottom: "15px", fontSize: "14px" }}>
-                        🖼️ صورة صفحة المصحف الشريف لسورة {surahDetails.name}
+                        🖼️ صفحة المصحف الشريف لسورة {surahDetails.name}
                       </p>
-                      <div style={{ background: "#fdfbf7", padding: "20px", borderRadius: "8px", display: "inline-block", maxWidth: "100%" }}>
-                        {/* عرض نموذج مرئي أو صورة المصحف الرسمية */}
-                        <img
-                          src={`https://everyayah.com/data/images/quran/${String(surahDetails.number).padStart(3, "0")}.png`}
-                          alt={`سورة ${surahDetails.name}`}
-                          style={{ width: "100%", maxHeight: "600px", objectFit: "contain", borderRadius: "4px" }}
-                          onError={(e) => {
-                            // في حال عدم توفر الصورة المباشرة يتم عرض بديل نصي إرشادي
-                            (e.target as HTMLElement).style.display = "none";
-                          }}
-                        />
-                        <div style={{ color: "#333", padding: "20px", fontSize: "18px", fontFamily: "Traditional Arabic, serif" }}>
-                          {surahDetails.ayahs.map(a => a.text).join(" ﴿" + a.numberInSurah + "﴾ ")}
-                        </div>
+                      <div style={{ background: "#fdfbf7", padding: "20px", borderRadius: "8px", color: "#333", fontSize: "18px", fontFamily: "Traditional Arabic, serif", lineHeight: "2.2" }}>
+                        {surahDetails.ayahs.map(a => `${a.text} ﴿${a.numberInSurah}﴾`).join(" ")}
                       </div>
                     </div>
                   )}
@@ -602,7 +583,6 @@ export default function App() {
           </section>
         )}
 
-        {/* صفحة التلاوات الصوتية */}
         {currentTab === "audio" && (
           <section className="section audio-section">
             <div className="audio-hero">
@@ -698,7 +678,6 @@ export default function App() {
           </section>
         )}
 
-        {/* صفحة الأذكار المستقلة */}
         {currentTab === "adhkar" && (
           <section className="section" style={{ paddingTop: "10px" }}>
             <div className="section-heading">
@@ -771,7 +750,6 @@ export default function App() {
         )}
       </main>
 
-      {/* مشغل الصوت المصغر */}
       {currentAudio && (
         <div className="mini-player" style={{ flexDirection: "column", gap: "10px", padding: "14px 18px", boxSizing: "border-box" }}>
           <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -815,63 +793,4 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", overflow: "hidden" }}>
               <div className="player-info" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <strong style={{ fontSize: "13px", display: "block" }}>{currentAudio.name}</strong>
-                <span style={{ fontSize: "10px", opacity: 0.8 }}>
-                  {isPlaying ? `سورة ${activeSurahName}` : "متوقف مؤقتًا"}
-                </span>
-              </div>
-              <span className="player-icon" style={{ fontSize: "18px" }}>{isPlaying ? "♫" : "♪"}</span>
-            </div>
-
-          </div>
-
-          <div style={{ display: "flex", width: "100%", alignItems: "center", gap: "10px", fontSize: "11px", opacity: 0.9 }}>
-            <span>{formatTime(currentTime)}</span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              value={currentTime}
-              onChange={handleSeek}
-              style={{ flex: 1, accentColor: "#10B981", cursor: "pointer", height: "4px" }}
-            />
-            <span>{formatTime(duration)}</span>
-          </div>
-        </div>
-      )}
-
-      <footer className="footer">
-        <div className="footer-symbol">۞</div>
-        <h3>نور القرآن</h3>
-        <p> وَاذْكُر رَّبَّكَ كَثِيرًا </p>
-        <div className="footer-line" />
-        <span> القرآن الكريم — صدقة جارية بإذن الله </span>
-      </footer>
-
-      {/* شريط التنقل السفلي للجوال */}
-      <nav className="mobile-nav">
-        <button
-          className={currentTab === "surahs" ? "mobile-active" : ""}
-          onClick={() => {
-            setCurrentTab("surahs");
-            setSelectedSurah(null);
-            setSurahDetails(null);
-          }}
-        >
-          <span>۞</span> المصحف
-        </button>
-        <button
-          className={currentTab === "audio" ? "mobile-active" : ""}
-          onClick={() => setCurrentTab("audio")}
-        >
-          <span>♫</span> التلاوات
-        </button>
-        <button
-          className={currentTab === "adhkar" ? "mobile-active" : ""}
-          onClick={() => setCurrentTab("adhkar")}
-        >
-          <span>📿</span> الأذكار
-        </button>
-      </nav>
-    </div>
-  );
-}
+                <span style={{ fontSize: "10px
