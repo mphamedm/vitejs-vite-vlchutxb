@@ -214,12 +214,26 @@ export default function App() {
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
-  const activeAyahIndex = surahDetails && duration > 0 
-    ? Math.min(
-        Math.floor((currentTime / duration) * surahDetails.ayahs.length),
-        surahDetails.ayahs.length - 1
-      )
-    : -1;
+  // حساب دقيق للآية النشطة استنادًا إلى نسبة طول الآيات بالنسبة لمجمل السورة
+  const getActiveAyahIndex = () => {
+    if (!surahDetails || duration <= 0) return -1;
+    const totalChars = surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
+    if (totalChars === 0) return -1;
+
+    const progressRatio = currentTime / duration;
+    let accumulatedRatio = 0;
+
+    for (let i = 0; i < surahDetails.ayahs.length; i++) {
+      const ayahWeight = surahDetails.ayahs[i].text.length / totalChars;
+      accumulatedRatio += ayahWeight;
+      if (progressRatio <= accumulatedRatio) {
+        return i;
+      }
+    }
+    return surahDetails.ayahs.length - 1;
+  };
+
+  const activeAyahIndex = getActiveAyahIndex();
 
   return (
     <div className="app" dir="rtl">
@@ -489,13 +503,12 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* لوحة التشغيل وقائمة اختيار القارئ المنسدلة */}
                   <div style={{ background: "linear-gradient(145deg, #16221c, #111a15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <span style={{ fontSize: "22px" }}>🎧</span>
                       <div>
                         <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>مشغل تلاوة سورة {surahDetails.name}</strong>
-                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ من القائمة أدناه للاستماع وتظليل الآيات</span>
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ واستمع للآيات مع التظليل التلقائي</span>
                       </div>
                     </div>
 
@@ -560,11 +573,14 @@ export default function App() {
                               className="ayah"
                               style={{
                                 display: "inline",
-                                padding: isHighlighted ? "6px 10px" : "0",
+                                padding: isHighlighted ? "6px 12px" : "2px 4px",
+                                margin: "2px",
                                 borderRadius: "8px",
-                                background: isHighlighted ? "rgba(16, 185, 129, 0.3)" : "transparent",
+                                background: isHighlighted ? "rgba(16, 185, 129, 0.35)" : "transparent",
+                                boxShadow: isHighlighted ? "0 0 12px rgba(16, 185, 129, 0.4)" : "none",
                                 borderBottom: isHighlighted ? "2px solid #34D399" : "none",
                                 color: isHighlighted ? "#34D399" : "inherit",
+                                fontWeight: isHighlighted ? "bold" : "normal",
                                 transition: "all 0.3s ease"
                               }}
                             >
