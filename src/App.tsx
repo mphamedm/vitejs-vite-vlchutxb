@@ -7,6 +7,7 @@ type Surah = {
   englishName: string;
   numberOfAyahs: number;
   revelationType: string;
+  page?: number;
 };
 
 type Ayah = {
@@ -42,6 +43,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
+  // وضع العرض في المصحف: نص أو صورة المصحف
+  const [readerMode, setReaderMode] = useState<"text" | "image">("text");
+
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
   const [selectedAudioSurah, setSelectedAudioSurah] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -115,6 +119,7 @@ export default function App() {
     setSurahDetails(null);
     setLoadingDetails(true);
     setError("");
+    setReaderMode("text");
     try {
       const response = await fetch(`https://api.alquran.cloud/v1/surah/${number}`);
       if (!response.ok) throw new Error("تعذر تحميل السورة");
@@ -209,6 +214,14 @@ export default function App() {
   });
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
+
+  // حساب الآية الحالية المضغوطة/المضللة أثناء التشغيل الصوتي بناءً على التقدم الزمني
+  const activeAyahIndex = surahDetails && duration > 0 
+    ? Math.min(
+        Math.floor((currentTime / duration) * surahDetails.ayahs.length),
+        surahDetails.ayahs.length - 1
+      )
+    : -1;
 
   return (
     <div className="app" dir="rtl">
@@ -350,10 +363,7 @@ export default function App() {
               {error && (
                 <div className="error-message">
                   {error}
-                  <button
-                    className="retry-button"
-                    onClick={() => fetchAllSurahs()}
-                  >
+                  <button className="retry-button" onClick={() => fetchAllSurahs()}>
                     إعادة المحاولة
                   </button>
                 </div>
@@ -402,19 +412,56 @@ export default function App() {
           </>
         )}
 
-        {/* عرض تفاصيل الآيات والسورة */}
+        {/* عرض تفاصيل الآيات والسورة مع ميزة عرض صورة المصحف وتشغيل الصوت والتظليل */}
         {currentTab === "surahs" && selectedSurah !== null && (
           <section className="reader-section">
-            <button
-              className="back-button"
-              onClick={() => {
-                setSelectedSurah(null);
-                setSurahDetails(null);
-                setError("");
-              }}
-            >
-              → العودة إلى قائمة السور
-            </button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+              <button
+                className="back-button"
+                onClick={() => {
+                  setSelectedSurah(null);
+                  setSurahDetails(null);
+                  setError("");
+                }}
+                style={{ margin: 0 }}
+              >
+                → العودة إلى قائمة السور
+              </button>
+
+              {/* أزرار التبديل بين عرض النص وعرض صورة المصحف */}
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => setReaderMode("text")}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    background: readerMode === "text" ? "#10B981" : "#1e1e1e",
+                    color: readerMode === "text" ? "#fff" : "#10B981",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  📖 نص الآيات
+                </button>
+                <button
+                  onClick={() => setReaderMode("image")}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    background: readerMode === "image" ? "#10B981" : "#1e1e1e",
+                    color: readerMode === "image" ? "#fff" : "#10B981",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  🖼️ صورة المصحف
+                </button>
+              </div>
+            </div>
 
             {error && (
               <div className="error-message">
@@ -447,20 +494,97 @@ export default function App() {
                     </div>
                   </div>
 
-                  {surahDetails.number !== 1 && surahDetails.number !== 9 && (
-                    <div className="basmala"> بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ </div>
-                  )}
+                  {/* زر تشغيل التلاوة الصوتية مباشرة داخل صفحة القراءة */}
+                  <div style={{ background: "linear-gradient(145deg, #16221c, #111a15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ fontSize: "22px" }}>🎧</span>
+                      <div>
+                        <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>استمع إلى سورة {surahDetails.name}</strong>
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ وابدأ الاستماع مع تظليل الآيات</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {reciters.slice(0, 3).map((reciter) => {
+                        const isThisActive = currentAudio?.id === reciter.id && isPlaying && selectedAudioSurah === surahDetails.number;
+                        return (
+                          <button
+                            key={reciter.id}
+                            onClick={() => {
+                              setSelectedAudioSurah(surahDetails.number);
+                              playReciterAudio(reciter, surahDetails.number);
+                            }}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "8px",
+                              border: "1px solid #10B981",
+                              background: isThisActive ? "#EF4444" : "#10B981",
+                              color: "#fff",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                              fontWeight: "bold"
+                            }}
+                          >
+                            {isThisActive ? `⏸️ إيقاف (${reciter.name.split(" ")[0]})` : `▶️ ${reciter.name.split(" ")[0]}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                  <article className="quran-text">
-                    {surahDetails.ayahs.map((ayah) => (
-                      <span className="ayah" key={ayah.number}>
-                        {ayah.text}{" "}
-                        <span className="ayah-number" title={`الآية ${ayah.numberInSurah}`}>
-                          {ayah.numberInSurah}
-                        </span>
-                      </span>
-                    ))}
-                  </article>
+                  {/* عرض محتوى القراءة بناءً على الوضع المختار (نص أو صورة) */}
+                  {readerMode === "text" ? (
+                    <>
+                      {surahDetails.number !== 1 && surahDetails.number !== 9 && (
+                        <div className="basmala"> بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ </div>
+                      )}
+
+                      <article className="quran-text">
+                        {surahDetails.ayahs.map((ayah, index) => {
+                          const isHighlighted = isPlaying && selectedAudioSurah === surahDetails.number && index === activeAyahIndex;
+                          return (
+                            <span
+                              key={ayah.number}
+                              className="ayah"
+                              style={{
+                                display: "inline",
+                                padding: isHighlighted ? "4px 8px" : "0",
+                                borderRadius: "6px",
+                                background: isHighlighted ? "rgba(16, 185, 129, 0.25)" : "transparent",
+                                borderBottom: isHighlighted ? "2px solid #10B981" : "none",
+                                transition: "background 0.3s ease"
+                              }}
+                            >
+                              {ayah.text}{" "}
+                              <span className="ayah-number" title={`الآية ${ayah.numberInSurah}`}>
+                                {ayah.numberInSurah}
+                              </span>
+                            </span>
+                          );
+                        })}
+                      </article>
+                    </>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "20px", background: "#16221c", borderRadius: "12px", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                      <p style={{ color: "#34D399", marginBottom: "15px", fontSize: "14px" }}>
+                        🖼️ صورة صفحة المصحف الشريف لسورة {surahDetails.name}
+                      </p>
+                      <div style={{ background: "#fdfbf7", padding: "20px", borderRadius: "8px", display: "inline-block", maxWidth: "100%" }}>
+                        {/* عرض نموذج مرئي أو صورة المصحف الرسمية */}
+                        <img
+                          src={`https://everyayah.com/data/images/quran/${String(surahDetails.number).padStart(3, "0")}.png`}
+                          alt={`سورة ${surahDetails.name}`}
+                          style={{ width: "100%", maxHeight: "600px", objectFit: "contain", borderRadius: "4px" }}
+                          onError={(e) => {
+                            // في حال عدم توفر الصورة المباشرة يتم عرض بديل نصي إرشادي
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                        <div style={{ color: "#333", padding: "20px", fontSize: "18px", fontFamily: "Traditional Arabic, serif" }}>
+                          {surahDetails.ayahs.map(a => a.text).join(" ﴿" + a.numberInSurah + "﴾ ")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     className="back-button bottom-back"
@@ -468,6 +592,7 @@ export default function App() {
                       setSelectedSurah(null);
                       setSurahDetails(null);
                     }}
+                    style={{ marginTop: "30px" }}
                   >
                     العودة إلى جميع السور
                   </button>
@@ -550,21 +675,21 @@ export default function App() {
 
             <div className="reciter-grid">
               {reciters.map((reciter, index) => {
-                const active = currentAudio?.id === reciter.id;
+                const active = currentAudio?.id === reciter.id && isPlaying;
                 return (
                   <div className={`reciter-card ${active ? "reciter-active" : ""}`} key={reciter.id}>
                     <div className="reciter-top">
-                      <span className="reciter-avatar"> {active && isPlaying ? "♫" : "۞"} </span>
+                      <span className="reciter-avatar"> {active ? "♫" : "۞"} </span>
                       <span className="reciter-index"> {String(index + 1).padStart(2, "0")} </span>
                     </div>
                     <h3>{reciter.name}</h3>
-                    <p> {active && isPlaying ? `تُبث ${activeSurahName}` : "قارئ القرآن الكريم"} </p>
+                    <p> {active ? `تُبث ${activeSurahName}` : "قارئ القرآن الكريم"} </p>
                     <button
-                      className={`listen-button ${active && isPlaying ? "listen-active" : ""}`}
+                      className={`listen-button ${active ? "listen-active" : ""}`}
                       onClick={() => playReciterAudio(reciter)}
                     >
-                      <span> {active && isPlaying ? "Ⅱ" : "▶"} </span>
-                      {active && isPlaying ? "إيقاف مؤقت" : `استمع لـ ${activeSurahName}`}
+                      <span> {active ? "Ⅱ" : "▶"} </span>
+                      {active ? "إيقاف مؤقت" : `استمع لـ ${activeSurahName}`}
                     </button>
                   </div>
                 );
