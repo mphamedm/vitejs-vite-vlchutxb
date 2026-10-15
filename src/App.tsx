@@ -214,26 +214,26 @@ export default function App() {
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
-  // حساب دقيق للآية النشطة مع مراعاة وزن البسملة في بداية التلاوة
+  // حساب دقيق للآية النشطة مع مراعاة زمن الاستعاذة والبسملة في بداية التلاوة
   const getActiveAyahIndex = () => {
     if (!surahDetails || duration <= 0) return -1;
 
-    // البسملة مستثناة في الفاتحة (السورة 1) والتوبة (السورة 9)
-    const hasBasmala = surahDetails.number !== 1 && surahDetails.number !== 9;
-    const basmalaText = "بسم الله الرحمن الرحيم";
-    const basmalaLength = hasBasmala ? basmalaText.length : 0;
+    // حساب البسملة والاستعاذة (مستثناة في سورة التوبة)
+    const hasIntro = surahDetails.number !== 9;
+    const introText = "أعوذ بالله من الشيطان الرجيم بسم الله الرحمن الرحيم";
+    const introLength = hasIntro ? introText.length : 0;
 
-    const totalChars = basmalaLength + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
+    const totalChars = introLength + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
     if (totalChars === 0) return -1;
 
     const progressRatio = currentTime / duration;
     let accumulatedRatio = 0;
 
-    // تخصيص الوزن النسبي للبسملة إذا كانت موجودة
-    if (hasBasmala) {
-      const basmalaWeight = basmalaLength / totalChars;
-      accumulatedRatio += basmalaWeight;
-      // إذا كان التقديم الصوتي لا يزال في فترة البسملة، لا نضلل أي آية (-1)
+    // تخصيص الوزن النسبي للاستعاذة والبسملة إذا كانتا موجودتين
+    if (hasIntro) {
+      const introWeight = introLength / totalChars;
+      accumulatedRatio += introWeight;
+      // أثناء فترة الاستعاذة والبسملة لا يتم تظليل أي آية (-1)
       if (progressRatio < accumulatedRatio) {
         return -1;
       }
