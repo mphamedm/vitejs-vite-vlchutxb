@@ -7,13 +7,13 @@ type Surah = {
   englishName: string;
   numberOfAyahs: number;
   revelationType: string;
-  page?: number;
 };
 
 type Ayah = {
   number: number;
   numberInSurah: number;
   text: string;
+  audio?: string;
 };
 
 type SurahDetails = Surah & {
@@ -23,8 +23,7 @@ type SurahDetails = Surah & {
 type Reciter = {
   id: number;
   name: string;
-  server: string;
-  quranComReciterId: number; // معرف القارئ من API Quran.com للحصول على توقيت الآيات المباشر
+  edition: string; // معرف القارئ في API الأصوات المترابطة
 };
 
 type DhikrItem = {
@@ -32,12 +31,6 @@ type DhikrItem = {
   title: string;
   text: string;
   maxCount: number;
-};
-
-type AyahTiming = {
-  verse_key: string;
-  timestamp_from: number;
-  timestamp_to: number;
 };
 
 export default function App() {
@@ -52,14 +45,16 @@ export default function App() {
   
   const [readerMode, setReaderMode] = useState<"text" | "image">("text");
 
-  const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
-  const [selectedAudioSurah, setSelectedAudioSurah] = useState<number>(1);
+  const [currentReciter, setCurrentReciter] = useState<Reciter>({
+    id: 1,
+    name: "مشاري العفاسي",
+    edition: "ar.alafasy",
+  });
+  
+  const [currentAyahIndex, setCurrentAyahIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  
-  // مصفوفة التوقيتات الفعلية للآيات من API
-  const [ayahTimings, setAyahTimings] = useState<AyahTiming[]>([]);
 
   const [dhikrCounts, setDhikrCounts] = useState<{ [key: number]: number }>({
     1: 3,
@@ -71,11 +66,11 @@ export default function App() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const reciters: Reciter[] = [
-    { id: 1, name: "مشاري العفاسي", server: "https://server8.mp3quran.net/afs/", quranComReciterId: 7 },
-    { id: 2, name: "عبد الباسط عبد الصمد", server: "https://server7.mp3quran.net/basit/", quranComReciterId: 1 },
-    { id: 3, name: "محمود خليل الحصري", server: "https://server13.mp3quran.net/husr/", quranComReciterId: 6 },
-    { id: 4, name: "ماهر المعيقلي", server: "https://server11.mp3quran.net/maher/", quranComReciterId: 12 },
-    { id: 5, name: "محمد صديق المنشاوي", server: "https://server10.mp3quran.net/minsh/", quranComReciterId: 9 },
+    { id: 1, name: "مشاري العفاسي", edition: "ar.alafasy" },
+    { id: 2, name: "عبد الباسط عبد الصمد", edition: "ar.abdulbasitmurattal" },
+    { id: 3, name: "محمود خليل الحصري", edition: "ar.husary" },
+    { id: 4, name: "ماهر المعيقلي", edition: "ar.mahermuaiqly" },
+    { id: 5, name: "محمد صديق المنشاوي", edition: "ar.minshawi" },
   ];
 
   const adhkarList: DhikrItem[] = [
@@ -122,15 +117,17 @@ export default function App() {
     }
   }
 
-  async function fetchSurahDetails(number: number) {
+  // جلب السورة مع الروابط الصوتية المباشرة لكل آية بالتفصيل
+  async function fetchSurahDetails(number: number, reciterEdition = currentReciter.edition) {
     setSelectedSurah(number);
-    setSelectedAudioSurah(number);
     setSurahDetails(null);
     setLoadingDetails(true);
     setError("");
-    setReaderMode("text");
+    setCurrentAyahIndex(-1);
+    setIsPlaying(false);
+
     try {
-      const response = await fetch(`https://api.alquran.cloud/v1/surah/${number}`);
+      const response = await fetch(`https://api.alquran.cloud/v1/surah/${number}/${reciterEdition}`);
       if (!response.ok) throw new Error("تعذر تحميل السورة");
       const data = await response.json();
       if (data.code === 200) {
@@ -146,83 +143,48 @@ export default function App() {
     }
   }
 
-  // جلب التوقيتات المباشرة والدقيقة لكل آية من API Quran.com
-  async function fetchAyahTimings(reciterId: number, surahNumber: number) {
-    try {
-      const res = await fetch(`https://api.quran.com/api/v4/chapter_recitations/${reciterId}/${surahNumber}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.audio_file && data.audio_file.timestamps) {
-          setAyahTimings(data.audio_file.timestamps);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn("تعذر جلب التوقيتات الدقيقة للآيات، جاري الاعتماد على التوقيت التلقائي", e);
-    }
-    setAyahTimings([]);
-  }
-
-  async function playReciterAudio(reciter: Reciter, surahNum?: number) {
+  // تشغيل آية معينة
+  const playAyah = (index: number) => {
+    if (!surahDetails || !surahDetails.ayahs[index]) return;
     const audio = audioRef.current;
     if (!audio) return;
 
-    const targetSurah = surahNum || selectedAudioSurah;
-    const formattedSurahNumber = String(targetSurah).padStart(3, "0");
-    const audioUrl = `${reciter.server}${formattedSurahNumber}.mp3`;
-
-    // جلب توقيتات الآيات الدقيقة لهذا القارئ وهذه السورة
-    fetchAyahTimings(reciter.quranComReciterId, targetSurah);
-
-    if (currentAudio?.id === reciter.id && audio.src.includes(formattedSurahNumber)) {
-      if (audio.paused) {
-        try {
-          await audio.play();
-          setIsPlaying(true);
-        } catch {
-          setError("تعذر تشغيل الصوت. حاول مرة أخرى.");
-        }
-      } else {
-        audio.pause();
-        setIsPlaying(false);
-      }
-      return;
-    }
-
-    setCurrentAudio(reciter);
-    if (surahNum) setSelectedAudioSurah(surahNum);
-    setIsPlaying(false);
-    setError("");
-
-    audio.src = audioUrl;
+    setCurrentAyahIndex(index);
+    audio.src = surahDetails.ayahs[index].audio || "";
     audio.load();
-    try {
-      await audio.play();
-      setIsPlaying(true);
-    } catch {
-      setError("تعذر تشغيل التلاوة. تأكد من اتصال الإنترنت.");
+    audio.play().then(() => setIsPlaying(true)).catch(() => setError("تعذر تشغيل الآية"));
+  };
+
+  // عند انتهاء تشغيل الآية الحالية ينتقل تلقائياً للآية التالية
+  const handleAyahEnded = () => {
+    if (surahDetails && currentAyahIndex < surahDetails.ayahs.length - 1) {
+      playAyah(currentAyahIndex + 1);
+    } else {
+      setIsPlaying(false);
+      setCurrentAyahIndex(-1);
     }
-  }
-
-  const playNextReciter = () => {
-    if (!currentAudio) return;
-    const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
-    const nextIndex = (currentIndex + 1) % reciters.length;
-    playReciterAudio(reciters[nextIndex], selectedAudioSurah);
   };
 
-  const playPrevReciter = () => {
-    if (!currentAudio) return;
-    const currentIndex = reciters.findIndex((r) => r.id === currentAudio.id);
-    const prevIndex = (currentIndex - 1 + reciters.length) % reciters.length;
-    playReciterAudio(reciters[prevIndex], selectedAudioSurah);
+  const togglePlayAll = () => {
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    } else {
+      if (currentAyahIndex === -1) {
+        playAyah(0);
+      } else {
+        audioRef.current?.play();
+        setIsPlaying(true);
+      }
+    }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value);
-    setCurrentTime(time);
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
+  const handleReciterChange = (reciterId: number) => {
+    const selected = reciters.find((r) => r.id === reciterId);
+    if (!selected) return;
+    setCurrentReciter(selected);
+    if (selectedSurah) {
+      fetchSurahDetails(selectedSurah, selected.edition);
     }
   };
 
@@ -242,52 +204,13 @@ export default function App() {
     );
   });
 
-  const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
-
-  // تحديد مؤشر الآية الحالية: باستخدام التوقيتات الدقيقة (Timestamps) إن وجدت، أو التوزيع التقديري
-  const getActiveAyahIndex = () => {
-    if (!surahDetails || duration <= 0) return -1;
-
-    const currentTimeMs = currentTime * 1000;
-
-    // 1. التظليل الدقيق عبر Timestamps
-    if (ayahTimings && ayahTimings.length > 0) {
-      const activeTimingIndex = ayahTimings.findIndex(
-        (t) => currentTimeMs >= t.timestamp_from && currentTimeMs <= t.timestamp_to
-      );
-      if (activeTimingIndex !== -1) {
-        return activeTimingIndex;
-      }
-    }
-
-    // 2. التظليل التقديري كخيار احتياطي (Fallback)
-    const hasIntro = surahDetails.number !== 9;
-    const introWeight = hasIntro ? 45 : 0;
-    const totalLength = introWeight + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
-    if (totalLength === 0) return -1;
-
-    const introDuration = (introWeight / totalLength) * duration;
-    if (currentTime < introDuration) return -1;
-
-    let accumulatedTime = introDuration;
-    for (let i = 0; i < surahDetails.ayahs.length; i++) {
-      const ayahDur = (surahDetails.ayahs[i].text.length / totalLength) * duration;
-      accumulatedTime += ayahDur;
-      if (currentTime <= accumulatedTime) return i;
-    }
-
-    return surahDetails.ayahs.length - 1;
-  };
-
-  const activeAyahIndex = getActiveAyahIndex();
-
   return (
     <div className="app" dir="rtl">
       <audio
         ref={audioRef}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={handleAyahEnded}
         onTimeUpdate={() => {
           if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
         }}
@@ -478,6 +401,7 @@ export default function App() {
                   setSelectedSurah(null);
                   setSurahDetails(null);
                   setError("");
+                  setIsPlaying(false);
                 }}
                 style={{ margin: 0 }}
               >
@@ -530,7 +454,7 @@ export default function App() {
             {loadingDetails ? (
               <div className="loading">
                 <span className="spinner" />
-                <p>جاري تحميل آيات السورة...</p>
+                <p>جاري تحميل آيات السورة والتسجيلات الصوتية...</p>
               </div>
             ) : (
               surahDetails && (
@@ -549,22 +473,22 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* مشغل التلاوة المتزامن دقيق الآيات */}
                   <div style={{ background: "linear-gradient(145deg, #16221c, #111a15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <span style={{ fontSize: "22px" }}>🎧</span>
                       <div>
-                        <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>مشغل تلاوة سورة {surahDetails.name}</strong>
-                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ واستمع للتلاوة بالتوقيت الدقيق للآيات</span>
+                        <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>تلاوة متزامنة آية بآية — {surahDetails.name}</strong>
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>
+                          {currentAyahIndex !== -1 ? `يتلى الآن: الآية (${currentAyahIndex + 1})` : "انقر تشغيل أو انقر على أي آية للاستماع إليها"}
+                        </span>
                       </div>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                       <select
-                        value={currentAudio?.id || reciters[0].id}
-                        onChange={(e) => {
-                          const reciter = reciters.find(r => r.id === Number(e.target.value));
-                          if (reciter) playReciterAudio(reciter, surahDetails.number);
-                        }}
+                        value={currentReciter.id}
+                        onChange={(e) => handleReciterChange(Number(e.target.value))}
                         style={{
                           padding: "8px 14px",
                           borderRadius: "8px",
@@ -576,30 +500,27 @@ export default function App() {
                           cursor: "pointer"
                         }}
                       >
-                        {reciters.map((reciter) => (
-                          <option key={reciter.id} value={reciter.id} style={{ background: "#121212", color: "#fff" }}>
-                            {reciter.name}
+                        {reciters.map((r) => (
+                          <option key={r.id} value={r.id} style={{ background: "#121212", color: "#fff" }}>
+                            {r.name}
                           </option>
                         ))}
                       </select>
 
                       <button
-                        onClick={() => {
-                          const activeReciter = currentAudio || reciters[0];
-                          playReciterAudio(activeReciter, surahDetails.number);
-                        }}
+                        onClick={togglePlayAll}
                         style={{
                           padding: "8px 16px",
                           borderRadius: "8px",
                           border: "none",
-                          background: isPlaying && selectedAudioSurah === surahDetails.number ? "#EF4444" : "#10B981",
+                          background: isPlaying ? "#EF4444" : "#10B981",
                           color: "#fff",
                           cursor: "pointer",
                           fontSize: "13px",
                           fontWeight: "bold"
                         }}
                       >
-                        {isPlaying && selectedAudioSurah === surahDetails.number ? "⏸️ إيقاف التلاوة" : "▶️ تشغيل التلاوة"}
+                        {isPlaying ? "⏸️ إيقاف مؤقت" : "▶️ تشغيل السورة"}
                       </button>
                     </div>
                   </div>
@@ -612,11 +533,12 @@ export default function App() {
 
                       <article className="quran-text">
                         {surahDetails.ayahs.map((ayah, index) => {
-                          const isHighlighted = isPlaying && selectedAudioSurah === surahDetails.number && index === activeAyahIndex;
+                          const isHighlighted = index === currentAyahIndex;
                           return (
                             <span
                               key={ayah.number}
                               className="ayah"
+                              onClick={() => playAyah(index)}
                               style={{
                                 display: "inline",
                                 padding: isHighlighted ? "6px 12px" : "2px 4px",
@@ -627,8 +549,10 @@ export default function App() {
                                 borderBottom: isHighlighted ? "2px solid #34D399" : "none",
                                 color: isHighlighted ? "#34D399" : "inherit",
                                 fontWeight: isHighlighted ? "bold" : "normal",
-                                transition: "all 0.3s ease"
+                                cursor: "pointer",
+                                transition: "all 0.2s ease"
                               }}
+                              title="اضغط للاستماع لهذه الآية"
                             >
                               {ayah.text}{" "}
                               <span className="ayah-number" title={`الآية ${ayah.numberInSurah}`}>
@@ -655,6 +579,7 @@ export default function App() {
                     onClick={() => {
                       setSelectedSurah(null);
                       setSurahDetails(null);
+                      setIsPlaying(false);
                     }}
                     style={{ marginTop: "30px" }}
                   >
@@ -675,88 +600,34 @@ export default function App() {
               <p> استمتع بتلاوات عطرة تملأ الروح سكينة وطمأنينة. </p>
             </div>
 
-            {error && <div className="error-message">{error}</div>}
-
-            <div style={{ 
-              background: "linear-gradient(145deg, #16221c, #111a15)", 
-              border: "1px solid rgba(16, 185, 129, 0.3)", 
-              padding: "20px 24px", 
-              borderRadius: "16px", 
-              marginBottom: "30px", 
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
-              display: "flex", 
-              flexDirection: "column", 
-              gap: "12px",
-              position: "relative",
-              overflow: "hidden"
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label style={{ fontSize: "15px", color: "#34D399", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span>۞</span> اختر السورة المراد الاستماع إليها:
-                </label>
-                <span style={{ fontSize: "12px", color: "#10B981", opacity: 0.8, background: "rgba(16, 185, 129, 0.1)", padding: "4px 10px", borderRadius: "20px" }}>
-                  السورة الحالية: {activeSurahName}
-                </span>
-              </div>
-              <div style={{ position: "relative" }}>
-                <select
-                  value={selectedAudioSurah}
-                  onChange={(e) => setSelectedAudioSurah(Number(e.target.value))}
-                  style={{ 
-                    width: "100%", 
-                    padding: "14px 18px", 
-                    borderRadius: "12px", 
-                    background: "#0d1411", 
-                    color: "#f3f4f6", 
-                    border: "1px solid rgba(16, 185, 129, 0.2)", 
-                    outline: "none", 
-                    fontSize: "15px", 
-                    cursor: "pointer",
-                    appearance: "none",
-                    fontFamily: "inherit"
-                  }}
-                >
-                  {surahs.map((surah) => (
-                    <option key={surah.number} value={surah.number} style={{ background: "#121212", color: "#fff" }}>
-                      {surah.number}. {surah.name} — ({surah.revelationType === "Meccan" ? "مكية" : "مدنية"} • {surah.numberOfAyahs} آية)
-                    </option>
-                  ))}
-                </select>
-                <span style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "#34D399", pointerEvents: "none", fontSize: "12px" }}>
-                  ▼
-                </span>
-              </div>
-            </div>
-
             <div className="section-heading">
               <div>
                 <h2>أصوات من نور</h2>
-                <p>اختر قارئك المفضل واستمع إلى السورة المحددة</p>
+                <p>اختر القارئ المفضل لديك لقراءة القرآن بالكامل</p>
               </div>
               <span className="heading-decoration">♫</span>
             </div>
 
             <div className="reciter-grid">
-              {reciters.map((reciter, index) => {
-                const active = currentAudio?.id === reciter.id && isPlaying;
-                return (
-                  <div className={`reciter-card ${active ? "reciter-active" : ""}`} key={reciter.id}>
-                    <div className="reciter-top">
-                      <span className="reciter-avatar"> {active ? "♫" : "۞"} </span>
-                      <span className="reciter-index"> {String(index + 1).padStart(2, "0")} </span>
-                    </div>
-                    <h3>{reciter.name}</h3>
-                    <p> {active ? `تُبث ${activeSurahName}` : "قارئ القرآن الكريم"} </p>
-                    <button
-                      className={`listen-button ${active ? "listen-active" : ""}`}
-                      onClick={() => playReciterAudio(reciter)}
-                    >
-                      <span> {active ? "Ⅱ" : "▶"} </span>
-                      {active ? "إيقاف مؤقت" : `استمع لـ ${activeSurahName}`}
-                    </button>
+              {reciters.map((reciter, index) => (
+                <div className={`reciter-card ${currentReciter.id === reciter.id ? "reciter-active" : ""}`} key={reciter.id}>
+                  <div className="reciter-top">
+                    <span className="reciter-avatar">۞</span>
+                    <span className="reciter-index"> {String(index + 1).padStart(2, "0")} </span>
                   </div>
-                );
-              })}
+                  <h3>{reciter.name}</h3>
+                  <p>قارئ القرآن الكريم</p>
+                  <button
+                    className="listen-button"
+                    onClick={() => {
+                      setCurrentReciter(reciter);
+                      setCurrentTab("surahs");
+                    }}
+                  >
+                    اختر هذا القارئ
+                  </button>
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -833,7 +704,8 @@ export default function App() {
         )}
       </main>
 
-      {currentAudio && (
+      {/* مشغل الصوت المصغر */}
+      {currentAyahIndex !== -1 && (
         <div className="mini-player" style={{ flexDirection: "column", gap: "10px", padding: "14px 18px", boxSizing: "border-box" }}>
           <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
             
@@ -841,7 +713,7 @@ export default function App() {
               <button
                 onClick={() => {
                   if (audioRef.current) audioRef.current.pause();
-                  setCurrentAudio(null);
+                  setCurrentAyahIndex(-1);
                   setIsPlaying(false);
                 }}
                 style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "50%", width: "28px", height: "28px", color: "#EF4444", cursor: "pointer", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -850,24 +722,23 @@ export default function App() {
                 ✕
               </button>
               <button
-                onClick={playPrevReciter}
+                onClick={() => currentAyahIndex > 0 && playAyah(currentAyahIndex - 1)}
                 style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "15px", padding: "2px" }}
-                title="القارئ السابق"
+                title="الآية السابقة"
               >
                 ⏮
               </button>
               <button
                 className="player-control"
-                onClick={() => playReciterAudio(currentAudio, selectedAudioSurah)}
-                aria-label={isPlaying ? "إيقاف مؤقت" : "تشغيل"}
+                onClick={togglePlayAll}
                 style={{ width: "34px", height: "34px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 {isPlaying ? "Ⅱ" : "▶"}
               </button>
               <button
-                onClick={playNextReciter}
+                onClick={() => surahDetails && currentAyahIndex < surahDetails.ayahs.length - 1 && playAyah(currentAyahIndex + 1)}
                 style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "15px", padding: "2px" }}
-                title="القارئ التالي"
+                title="الآية التالية"
               >
                 ⏭
               </button>
@@ -875,9 +746,9 @@ export default function App() {
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", overflow: "hidden" }}>
               <div className="player-info" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                <strong style={{ fontSize: "13px", display: "block" }}>{currentAudio.name}</strong>
+                <strong style={{ fontSize: "13px", display: "block" }}>{currentReciter.name}</strong>
                 <span style={{ fontSize: "10px", opacity: 0.8 }}>
-                  {isPlaying ? `سورة ${activeSurahName}` : "متوقف مؤقتًا"}
+                  الآية ({currentAyahIndex + 1})
                 </span>
               </div>
               <span className="player-icon" style={{ fontSize: "18px" }}>{isPlaying ? "♫" : "♪"}</span>
@@ -892,7 +763,11 @@ export default function App() {
               min={0}
               max={duration || 0}
               value={currentTime}
-              onChange={handleSeek}
+              onChange={(e) => {
+                const time = Number(e.target.value);
+                setCurrentTime(time);
+                if (audioRef.current) audioRef.current.currentTime = time;
+              }}
               style={{ flex: 1, accentColor: "#10B981", cursor: "pointer", height: "4px" }}
             />
             <span>{formatTime(duration)}</span>
