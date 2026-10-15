@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
@@ -44,6 +43,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
+  // وضع العرض في المصحف: نص أو صورة المصحف
   const [readerMode, setReaderMode] = useState<"text" | "image">("text");
 
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
@@ -793,4 +793,62 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", overflow: "hidden" }}>
               <div className="player-info" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <strong style={{ fontSize: "13px", display: "block" }}>{currentAudio.name}</strong>
-                <span style={{ fontSize: "10px
+                <span style={{ fontSize: "10px", opacity: 0.8 }}>
+                  {isPlaying ? `سورة ${activeSurahName}` : "متوقف مؤقتًا"}
+                </span>
+              </div>
+              <span className="player-icon" style={{ fontSize: "18px" }}>{isPlaying ? "♫" : "♪"}</span>
+            </div>
+
+          </div>
+
+          <div style={{ display: "flex", width: "100%", alignItems: "center", gap: "10px", fontSize: "11px", opacity: 0.9 }}>
+            <span>{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              style={{ flex: 1, accentColor: "#10B981", cursor: "pointer", height: "4px" }}
+            />
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+      )}
+
+      <footer className="footer">
+        <div className="footer-symbol">۞</div>
+        <h3>نور القرآن</h3>
+        <p> وَاذْكُر رَّبَّكَ كَثِيرًا </p>
+        <div className="footer-line" />
+        <span> القرآن الكريم — صدقة جارية بإذن الله </span>
+      </footer>
+
+      <nav className="mobile-nav">
+        <button
+          className={currentTab === "surahs" ? "mobile-active" : ""}
+          onClick={() => {
+            setCurrentTab("surahs");
+            setSelectedSurah(null);
+            setSurahDetails(null);
+          }}
+        >
+          <span>۞</span> المصحف
+        </button>
+        <button
+          className={currentTab === "audio" ? "mobile-active" : ""}
+          onClick={() => setCurrentTab("audio")}
+        >
+          <span>♫</span> التلاوات
+        </button>
+        <button
+          className={currentTab === "adhkar" ? "mobile-active" : ""}
+          onClick={() => setCurrentTab("adhkar")}
+        >
+          <span>📿</span> الأذكار
+        </button>
+      </nav>
+    </div>
+  );
+}
