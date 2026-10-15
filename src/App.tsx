@@ -24,6 +24,7 @@ type Reciter = {
   id: number;
   name: string;
   server: string;
+  quranComReciterId: number; // معرف القارئ من API Quran.com للحصول على توقيت الآيات المباشر
 };
 
 type DhikrItem = {
@@ -31,6 +32,12 @@ type DhikrItem = {
   title: string;
   text: string;
   maxCount: number;
+};
+
+type AyahTiming = {
+  verse_key: string;
+  timestamp_from: number;
+  timestamp_to: number;
 };
 
 export default function App() {
@@ -50,6 +57,9 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  
+  // مصفوفة التوقيتات الفعلية للآيات من API
+  const [ayahTimings, setAyahTimings] = useState<AyahTiming[]>([]);
 
   const [dhikrCounts, setDhikrCounts] = useState<{ [key: number]: number }>({
     1: 3,
@@ -61,11 +71,11 @@ export default function App() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const reciters: Reciter[] = [
-    { id: 1, name: "مشاري العفاسي", server: "https://server8.mp3quran.net/afs/" },
-    { id: 2, name: "عبد الباسط عبد الصمد", server: "https://server7.mp3quran.net/basit/" },
-    { id: 3, name: "محمود خليل الحصري", server: "https://server13.mp3quran.net/husr/" },
-    { id: 4, name: "ماهر المعيقلي", server: "https://server11.mp3quran.net/maher/" },
-    { id: 5, name: "محمد صديق المنشاوي", server: "https://server10.mp3quran.net/minsh/" },
+    { id: 1, name: "مشاري العفاسي", server: "https://server8.mp3quran.net/afs/", quranComReciterId: 7 },
+    { id: 2, name: "عبد الباسط عبد الصمد", server: "https://server7.mp3quran.net/basit/", quranComReciterId: 1 },
+    { id: 3, name: "محمود خليل الحصري", server: "https://server13.mp3quran.net/husr/", quranComReciterId: 6 },
+    { id: 4, name: "ماهر المعيقلي", server: "https://server11.mp3quran.net/maher/", quranComReciterId: 12 },
+    { id: 5, name: "محمد صديق المنشاوي", server: "https://server10.mp3quran.net/minsh/", quranComReciterId: 9 },
   ];
 
   const adhkarList: DhikrItem[] = [
@@ -136,6 +146,23 @@ export default function App() {
     }
   }
 
+  // جلب التوقيتات المباشرة والدقيقة لكل آية من API Quran.com
+  async function fetchAyahTimings(reciterId: number, surahNumber: number) {
+    try {
+      const res = await fetch(`https://api.quran.com/api/v4/chapter_recitations/${reciterId}/${surahNumber}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audio_file && data.audio_file.timestamps) {
+          setAyahTimings(data.audio_file.timestamps);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("تعذر جلب التوقيتات الدقيقة للآيات، جاري الاعتماد على التوقيت التلقائي", e);
+    }
+    setAyahTimings([]);
+  }
+
   async function playReciterAudio(reciter: Reciter, surahNum?: number) {
     const audio = audioRef.current;
     if (!audio) return;
@@ -143,6 +170,9 @@ export default function App() {
     const targetSurah = surahNum || selectedAudioSurah;
     const formattedSurahNumber = String(targetSurah).padStart(3, "0");
     const audioUrl = `${reciter.server}${formattedSurahNumber}.mp3`;
+
+    // جلب توقيتات الآيات الدقيقة لهذا القارئ وهذه السورة
+    fetchAyahTimings(reciter.quranComReciterId, targetSurah);
 
     if (currentAudio?.id === reciter.id && audio.src.includes(formattedSurahNumber)) {
       if (audio.paused) {
@@ -214,34 +244,36 @@ export default function App() {
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
-  // حساب الآية النشطة اعتماداً المباشر على عداد الثواني للـ audioRef مع مراعاة وزن الاستعاذة والبسملة
+  // تحديد مؤشر الآية الحالية: باستخدام التوقيتات الدقيقة (Timestamps) إن وجدت، أو التوزيع التقديري
   const getActiveAyahIndex = () => {
     if (!surahDetails || duration <= 0) return -1;
 
-    const hasIntro = surahDetails.number !== 9;
-    const introText = "أعوذ بالله من الشيطان الرجيم بسم الله الرحمن الرحيم";
-    const introWeight = hasIntro ? introText.length : 0;
+    const currentTimeMs = currentTime * 1000;
 
-    const totalTextLength = introWeight + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
-    if (totalTextLength === 0) return -1;
-
-    // زمن قراءة المقدمة بالثواني بناءً على العداد الكلي للسورة
-    const introDurationInSeconds = (introWeight / totalTextLength) * duration;
-
-    // إذا كان عداد الصوت الحالي ضمن وقت المقدمة، لا نقوم بتظليل أي آية
-    if (currentTime < introDurationInSeconds) {
-      return -1;
+    // 1. التظليل الدقيق عبر Timestamps
+    if (ayahTimings && ayahTimings.length > 0) {
+      const activeTimingIndex = ayahTimings.findIndex(
+        (t) => currentTimeMs >= t.timestamp_from && currentTimeMs <= t.timestamp_to
+      );
+      if (activeTimingIndex !== -1) {
+        return activeTimingIndex;
+      }
     }
 
-    // تتبع العداد بالثواني لمعرفة الآية المطلوبة
-    let currentLimitInSeconds = introDurationInSeconds;
-    for (let i = 0; i < surahDetails.ayahs.length; i++) {
-      const ayahDuration = (surahDetails.ayahs[i].text.length / totalTextLength) * duration;
-      currentLimitInSeconds += ayahDuration;
+    // 2. التظليل التقديري كخيار احتياطي (Fallback)
+    const hasIntro = surahDetails.number !== 9;
+    const introWeight = hasIntro ? 45 : 0;
+    const totalLength = introWeight + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
+    if (totalLength === 0) return -1;
 
-      if (currentTime <= currentLimitInSeconds) {
-        return i;
-      }
+    const introDuration = (introWeight / totalLength) * duration;
+    if (currentTime < introDuration) return -1;
+
+    let accumulatedTime = introDuration;
+    for (let i = 0; i < surahDetails.ayahs.length; i++) {
+      const ayahDur = (surahDetails.ayahs[i].text.length / totalLength) * duration;
+      accumulatedTime += ayahDur;
+      if (currentTime <= accumulatedTime) return i;
     }
 
     return surahDetails.ayahs.length - 1;
@@ -522,7 +554,7 @@ export default function App() {
                       <span style={{ fontSize: "22px" }}>🎧</span>
                       <div>
                         <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>مشغل تلاوة سورة {surahDetails.name}</strong>
-                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ واستمع للآيات مع التظليل المباشر بالثواني</span>
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ واستمع للتلاوة بالتوقيت الدقيق للآيات</span>
                       </div>
                     </div>
 
