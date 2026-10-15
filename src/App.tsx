@@ -43,7 +43,6 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // وضع العرض في المصحف: نص أو صورة المصحف
   const [readerMode, setReaderMode] = useState<"text" | "image">("text");
 
   const [currentAudio, setCurrentAudio] = useState<Reciter | null>(null);
@@ -115,6 +114,7 @@ export default function App() {
 
   async function fetchSurahDetails(number: number) {
     setSelectedSurah(number);
+    setSelectedAudioSurah(number);
     setSurahDetails(null);
     setLoadingDetails(true);
     setError("");
@@ -489,39 +489,59 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* لوحة التشغيل وقائمة اختيار القارئ المنسدلة */}
                   <div style={{ background: "linear-gradient(145deg, #16221c, #111a15)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "16px 20px", borderRadius: "12px", marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <span style={{ fontSize: "22px" }}>🎧</span>
                       <div>
-                        <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>استمع إلى سورة {surahDetails.name}</strong>
-                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ وابدأ الاستماع مع تظليل الآيات</span>
+                        <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>مشغل تلاوة سورة {surahDetails.name}</strong>
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ من القائمة أدناه للاستماع وتظليل الآيات</span>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      {reciters.slice(0, 3).map((reciter) => {
-                        const isThisActive = currentAudio?.id === reciter.id && isPlaying && selectedAudioSurah === surahDetails.number;
-                        return (
-                          <button
-                            key={reciter.id}
-                            onClick={() => {
-                              setSelectedAudioSurah(surahDetails.number);
-                              playReciterAudio(reciter, surahDetails.number);
-                            }}
-                            style={{
-                              padding: "6px 12px",
-                              borderRadius: "8px",
-                              border: "1px solid #10B981",
-                              background: isThisActive ? "#EF4444" : "#10B981",
-                              color: "#fff",
-                              cursor: "pointer",
-                              fontSize: "12px",
-                              fontWeight: "bold"
-                            }}
-                          >
-                            {isThisActive ? `⏸️ إيقاف (${reciter.name.split(" ")[0]})` : `▶️ ${reciter.name.split(" ")[0]}`}
-                          </button>
-                        );
-                      })}
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <select
+                        value={currentAudio?.id || reciters[0].id}
+                        onChange={(e) => {
+                          const reciter = reciters.find(r => r.id === Number(e.target.value));
+                          if (reciter) playReciterAudio(reciter, surahDetails.number);
+                        }}
+                        style={{
+                          padding: "8px 14px",
+                          borderRadius: "8px",
+                          background: "#0d1411",
+                          color: "#fff",
+                          border: "1px solid rgba(16, 185, 129, 0.4)",
+                          outline: "none",
+                          fontSize: "13px",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {reciters.map((reciter) => (
+                          <option key={reciter.id} value={reciter.id} style={{ background: "#121212", color: "#fff" }}>
+                            {reciter.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={() => {
+                          const activeReciter = currentAudio || reciters[0];
+                          playReciterAudio(activeReciter, surahDetails.number);
+                        }}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: "8px",
+                          border: "none",
+                          background: isPlaying && selectedAudioSurah === surahDetails.number ? "#EF4444" : "#10B981",
+                          color: "#fff",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: "bold"
+                        }}
+                      >
+                        {isPlaying && selectedAudioSurah === surahDetails.number ? "⏸️ إيقاف التلاوة" : "▶️ تشغيل التلاوة"}
+                      </button>
                     </div>
                   </div>
 
@@ -540,11 +560,12 @@ export default function App() {
                               className="ayah"
                               style={{
                                 display: "inline",
-                                padding: isHighlighted ? "4px 8px" : "0",
-                                borderRadius: "6px",
-                                background: isHighlighted ? "rgba(16, 185, 129, 0.25)" : "transparent",
-                                borderBottom: isHighlighted ? "2px solid #10B981" : "none",
-                                transition: "background 0.3s ease"
+                                padding: isHighlighted ? "6px 10px" : "0",
+                                borderRadius: "8px",
+                                background: isHighlighted ? "rgba(16, 185, 129, 0.3)" : "transparent",
+                                borderBottom: isHighlighted ? "2px solid #34D399" : "none",
+                                color: isHighlighted ? "#34D399" : "inherit",
+                                transition: "all 0.3s ease"
                               }}
                             >
                               {ayah.text}{" "}
