@@ -214,38 +214,36 @@ export default function App() {
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
-  // حساب دقيق للآية النشطة مع مراعاة زمن الاستعاذة والبسملة في بداية التلاوة
+  // حساب الآية النشطة اعتماداً المباشر على عداد الثواني للـ audioRef مع مراعاة وزن الاستعاذة والبسملة
   const getActiveAyahIndex = () => {
     if (!surahDetails || duration <= 0) return -1;
 
-    // حساب البسملة والاستعاذة (مستثناة في سورة التوبة)
     const hasIntro = surahDetails.number !== 9;
     const introText = "أعوذ بالله من الشيطان الرجيم بسم الله الرحمن الرحيم";
-    const introLength = hasIntro ? introText.length : 0;
+    const introWeight = hasIntro ? introText.length : 0;
 
-    const totalChars = introLength + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
-    if (totalChars === 0) return -1;
+    const totalTextLength = introWeight + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
+    if (totalTextLength === 0) return -1;
 
-    const progressRatio = currentTime / duration;
-    let accumulatedRatio = 0;
+    // زمن قراءة المقدمة بالثواني بناءً على العداد الكلي للسورة
+    const introDurationInSeconds = (introWeight / totalTextLength) * duration;
 
-    // تخصيص الوزن النسبي للاستعاذة والبسملة إذا كانتا موجودتين
-    if (hasIntro) {
-      const introWeight = introLength / totalChars;
-      accumulatedRatio += introWeight;
-      // أثناء فترة الاستعاذة والبسملة لا يتم تظليل أي آية (-1)
-      if (progressRatio < accumulatedRatio) {
-        return -1;
-      }
+    // إذا كان عداد الصوت الحالي ضمن وقت المقدمة، لا نقوم بتظليل أي آية
+    if (currentTime < introDurationInSeconds) {
+      return -1;
     }
 
+    // تتبع العداد بالثواني لمعرفة الآية المطلوبة
+    let currentLimitInSeconds = introDurationInSeconds;
     for (let i = 0; i < surahDetails.ayahs.length; i++) {
-      const ayahWeight = surahDetails.ayahs[i].text.length / totalChars;
-      accumulatedRatio += ayahWeight;
-      if (progressRatio <= accumulatedRatio) {
+      const ayahDuration = (surahDetails.ayahs[i].text.length / totalTextLength) * duration;
+      currentLimitInSeconds += ayahDuration;
+
+      if (currentTime <= currentLimitInSeconds) {
         return i;
       }
     }
+
     return surahDetails.ayahs.length - 1;
   };
 
@@ -524,7 +522,7 @@ export default function App() {
                       <span style={{ fontSize: "22px" }}>🎧</span>
                       <div>
                         <strong style={{ fontSize: "14px", color: "#34D399", display: "block" }}>مشغل تلاوة سورة {surahDetails.name}</strong>
-                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ واستمع للآيات مع التظليل التلقائي</span>
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>اختر القارئ واستمع للآيات مع التظليل المباشر بالثواني</span>
                       </div>
                     </div>
 
