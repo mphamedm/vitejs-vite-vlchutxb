@@ -214,14 +214,30 @@ export default function App() {
 
   const activeSurahName = surahs.find(s => s.number === selectedAudioSurah)?.name || "الفاتحة";
 
-  // حساب دقيق للآية النشطة استنادًا إلى نسبة طول الآيات بالنسبة لمجمل السورة
+  // حساب دقيق للآية النشطة مع مراعاة وزن البسملة في بداية التلاوة
   const getActiveAyahIndex = () => {
     if (!surahDetails || duration <= 0) return -1;
-    const totalChars = surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
+
+    // البسملة مستثناة في الفاتحة (السورة 1) والتوبة (السورة 9)
+    const hasBasmala = surahDetails.number !== 1 && surahDetails.number !== 9;
+    const basmalaText = "بسم الله الرحمن الرحيم";
+    const basmalaLength = hasBasmala ? basmalaText.length : 0;
+
+    const totalChars = basmalaLength + surahDetails.ayahs.reduce((acc, a) => acc + a.text.length, 0);
     if (totalChars === 0) return -1;
 
     const progressRatio = currentTime / duration;
     let accumulatedRatio = 0;
+
+    // تخصيص الوزن النسبي للبسملة إذا كانت موجودة
+    if (hasBasmala) {
+      const basmalaWeight = basmalaLength / totalChars;
+      accumulatedRatio += basmalaWeight;
+      // إذا كان التقديم الصوتي لا يزال في فترة البسملة، لا نضلل أي آية (-1)
+      if (progressRatio < accumulatedRatio) {
+        return -1;
+      }
+    }
 
     for (let i = 0; i < surahDetails.ayahs.length; i++) {
       const ayahWeight = surahDetails.ayahs[i].text.length / totalChars;
